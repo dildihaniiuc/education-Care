@@ -1,0 +1,6 @@
+{
+  "name": "এডুকেশন কেয়ার কোচিং সেন্টার - ম্যানেজমেন্ট সিস্টেম",
+  "description": "এডুকেশন কেয়ার কোচিং সেন্টার (গুলিয়াখালী, সীতাকুণ্ড, চট্টগ্রাম) এর আধুনিক ও পূর্ণাঙ্গ শিক্ষা প্রতিষ্ঠান ব্যবস্থাপনা সিস্টেম।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
