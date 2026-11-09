@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -35,6 +35,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsMobileOpen,
 }) => {
   const { settings, students, batches, routines, darkMode, toggleDarkMode } = useCoaching();
+
+  // Close drawer on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileOpen) {
+        setIsMobileOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileOpen, setIsMobileOpen]);
 
   const menuItems: { id: TabType; label: string; icon: React.ReactNode; badge?: string }[] = [
     {
@@ -94,24 +105,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop */}
+      {/* Backdrop for drawer */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/60 z-40 lg:hidden backdrop-blur-xs transition-opacity"
+          className="fixed inset-0 bg-slate-950/70 z-50 backdrop-blur-xs transition-opacity cursor-pointer"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Sidebar Drawer Container */}
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-50 w-72 bg-slate-900 dark:bg-slate-950 text-slate-100 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full'
-        } no-print shadow-xl lg:shadow-none border-r border-slate-800 dark:border-slate-900`}
+        className={`fixed top-0 left-0 bottom-0 z-50 w-72 sm:w-80 bg-slate-900 dark:bg-slate-950 text-slate-100 flex flex-col transition-transform duration-300 ease-in-out ${
+          isMobileOpen ? 'translate-x-0 shadow-2xl ring-1 ring-white/10' : '-translate-x-full'
+        } no-print border-r border-slate-800 dark:border-slate-900`}
       >
         {/* Institute Branding Header */}
         <div className="p-5 border-b border-slate-800 dark:border-slate-900 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-950/40">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-950/40 shrink-0">
               <BookOpen className="w-6 h-6" />
             </div>
             <div>
@@ -127,7 +138,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <button
             onClick={() => setIsMobileOpen(false)}
-            className="lg:hidden p-1 text-slate-400 hover:text-white rounded-md hover:bg-slate-800 transition"
+            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 border border-transparent hover:border-slate-700 transition cursor-pointer"
+            title="মেনু বন্ধ করুন (Esc)"
+            aria-label="মেনু বন্ধ করুন"
           >
             <X className="w-5 h-5" />
           </button>

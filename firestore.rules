@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Test connection document
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // Students collection: Public read, write with valid ID
+    match /students/{studentId} {
+      allow read: if true;
+      allow write: if isValidId(studentId);
+    }
+
+    // Exams collection: Public read, write with valid ID
+    match /exams/{examId} {
+      allow read: if true;
+      allow write: if isValidId(examId);
+    }
+
+    // Teachers collection: Public read, write with valid ID
+    match /teachers/{teacherId} {
+      allow read: if true;
+      allow write: if isValidId(teacherId);
+    }
+
+    // Batches collection: Public read, write with valid ID
+    match /batches/{batchId} {
+      allow read: if true;
+      allow write: if isValidId(batchId);
+    }
+
+    // Attendance collection: Public read, write with valid ID
+    match /attendance/{attendanceId} {
+      allow read: if true;
+      allow write: if isValidId(attendanceId);
+    }
+
+    // Fee payments collection: Public read, write with valid ID
+    match /feePayments/{paymentId} {
+      allow read: if true;
+      allow write: if isValidId(paymentId);
+    }
+
+    // Expenses collection: Public read, write with valid ID
+    match /expenses/{expenseId} {
+      allow read: if true;
+      allow write: if isValidId(expenseId);
+    }
+
+    // Class routines collection: Public read, write with valid ID
+    match /routines/{routineId} {
+      allow read: if true;
+      allow write: if isValidId(routineId);
+    }
+
+    // Audit logs collection: Public read, write with valid ID
+    match /auditLogs/{logId} {
+      allow read: if true;
+      allow write: if isValidId(logId);
+    }
+
+    // Settings collection
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isValidId(settingId);
+    }
+  }
+}

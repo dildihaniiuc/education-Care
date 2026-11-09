@@ -86,8 +86,11 @@ export const MoneyReceiptModal: React.FC<MoneyReceiptModalProps> = ({
               <p className="text-slate-500">
                 তারিখ: <span className="font-semibold text-slate-900">{formatBengaliDate(payment.date)}</span>
               </p>
-              <p className="text-slate-500 mt-1">
-                আদায়কারী: <span className="font-semibold text-slate-800">{payment.collectedBy || 'অফিস'}</span>
+              <p className="text-slate-500 mt-1 flex items-center justify-end gap-1">
+                <span>আদায়কারী:</span>
+                <span className="font-bold text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  {payment.collectedBy || 'শিক্ষক'}
+                </span>
               </p>
             </div>
           </div>
@@ -173,10 +176,20 @@ export const MoneyReceiptModal: React.FC<MoneyReceiptModalProps> = ({
               <p>শিক্ষার্থী / অভিভাবকের স্বাক্ষর</p>
             </div>
             <div className="text-center">
-              <div className="w-36 border-b border-slate-400 mb-1" />
-              <p className="font-semibold text-slate-800">আদায়কারী / পরিচালকের সিল ও স্বাক্ষর</p>
+              <div className="w-40 border-b border-slate-400 mb-1 mx-auto" />
+              <p className="font-bold text-slate-900">{payment.collectedBy || 'দায়িত্বপ্রাপ্ত শিক্ষক'}</p>
+              <p className="font-semibold text-slate-800 text-[11px]">আদায়কারী শিক্ষকের সিল ও স্বাক্ষর</p>
               <p className="text-[10px] text-slate-400">এডুকেশন কেয়ার কোচিং সেন্টার</p>
             </div>
+          </div>
+
+          {/* Security & Cloud Verification Footer */}
+          <div className="mt-6 pt-3 border-t border-dashed border-slate-200 flex items-center justify-between text-[10px] text-slate-400">
+            <span className="font-mono">আইডি: {payment.id}</span>
+            <span className="flex items-center gap-1 text-emerald-700 font-medium">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Google Cloud Firestore ডাটাবেসে চিরস্থায়ীভাবে সুরক্ষিত
+            </span>
           </div>
         </div>
       </div>

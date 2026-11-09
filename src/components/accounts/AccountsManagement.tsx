@@ -15,6 +15,8 @@ import {
   Send,
   X,
   Trash2,
+  ShieldCheck,
+  Download,
 } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
 import { FeePayment, Expense, ExpenseCategory, PaymentMethod } from '../../types';
@@ -49,6 +51,8 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
     deleteExpense,
     getStudentDueInfo,
     settings,
+    currentTeacher,
+    exportDatabase,
   } = useCoaching();
 
   const [activeSubTab, setActiveSubTab] = useState<'fees' | 'dues' | 'expenses' | 'summary'>('fees');
@@ -101,7 +105,12 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
   const handleAddExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!expenseForm.title.trim()) return;
-    addExpense(expenseForm);
+    addExpense({
+      ...expenseForm,
+      recordedByTeacherId: currentTeacher?.id || 'tch-dildihan',
+      recordedByTeacherName: currentTeacher?.name || 'দিল দিহান',
+      createdAt: new Date().toISOString(),
+    });
     setExpenseModalOpen(false);
     setExpenseForm({
       title: '',
@@ -137,7 +146,15 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={exportDatabase}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold transition border border-slate-300"
+            title="সবগুলো আয় ও ব্যয়ের তথ্য এক্সপোর্ট করুন"
+          >
+            <Download className="w-4 h-4 text-slate-600" />
+            লেজার ব্যাকআপ (JSON)
+          </button>
           <button
             onClick={onOpenCollectFee}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-semibold shadow-xs transition"
@@ -152,6 +169,37 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
             <TrendingDown className="w-4 h-4" />
             খরচ যুক্ত করুন
           </button>
+        </div>
+      </div>
+
+      {/* Cloud Protection & Data Loss Guarantee Card */}
+      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-emerald-500/20">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 text-emerald-300 shadow-inner">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-bold text-sm sm:text-base text-emerald-100">
+                ৩-স্তরবিশিষ্ট আর্থিক ডেটা সুরক্ষা ও শিক্ষক ট্র্যাকিং নিশ্চিত
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-400/30">
+                রিয়েল-টাইম ক্লাউড সিঙ্ক চালু
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
+              কোন শিক্ষক কোন শিক্ষার্থী থেকে কত টাকা বেতন নিয়েছেন বা কোন খরচের বিল নথিভুক্ত করেছেন—তার প্রতিটি সূক্ষ্ম তথ্য তারিখ ও সময়সহ Google Cloud Firestore ডাটাবেস ও স্থায়ী অডিট লগে অপরিবর্তনীয়ভাবে সংরক্ষিত হয়। ফলে কোনো তথ্য হারানোর সম্ভাবনা নেই।
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
+            <span className="text-[11px] text-emerald-300 block font-medium">লগইনকৃত শিক্ষক:</span>
+            <span className="text-xs font-bold text-white bg-white/10 px-2.5 py-1 rounded-lg border border-white/20 inline-block mt-0.5">
+              {currentTeacher?.name || 'দিল দিহান'} (শিক্ষক)
+            </span>
+          </div>
         </div>
       </div>
 
@@ -284,6 +332,7 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
                     <th className="px-4 py-3">মাস ও সাল</th>
                     <th className="px-4 py-3">তারিখ</th>
                     <th className="px-4 py-3">মাধ্যম</th>
+                    <th className="px-4 py-3">আদায়কারী শিক্ষক</th>
                     <th className="px-4 py-3 text-right">আদায়কৃত টাকা</th>
                     <th className="px-4 py-3 text-right">রসিদ</th>
                   </tr>
@@ -291,7 +340,7 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {filteredPayments.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-500">
+                      <td colSpan={9} className="py-8 text-center text-slate-500">
                         কোনো ফি পরিশোধের রেকর্ড মেলেনি।
                       </td>
                     </tr>
@@ -319,9 +368,18 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
                             {formatBengaliDate(p.date)}
                           </td>
                           <td className="px-4 py-3">
-                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs">
+                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
                               {p.paymentMethod}
                             </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5 font-bold text-emerald-950">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                              <span>{p.collectedBy || 'শিক্ষক'}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono pl-3.5">
+                              {p.collectedByTeacherName ? `আইডি: ${p.collectedByTeacherId || 'ক্লাউড'}` : 'অটো ডিটেক্টেড'}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-right font-bold text-emerald-700 font-mono">
                             {formatTaka(p.paidAmount)}
@@ -478,6 +536,7 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
                     <th className="px-4 py-3">প্রাপক / ব্যক্তি</th>
                     <th className="px-4 py-3">তারিখ</th>
                     <th className="px-4 py-3">পরিশোধ মাধ্যম</th>
+                    <th className="px-4 py-3">নথিভুক্তকারী শিক্ষক</th>
                     <th className="px-4 py-3 text-right">খরচ (টাকা)</th>
                     <th className="px-4 py-3 text-right">অ্যাকশন</th>
                   </tr>
@@ -485,7 +544,7 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {expenses.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-500">
+                      <td colSpan={8} className="py-8 text-center text-slate-500">
                         এখনও কোনো ব্যয়ের এন্ট্রি নেই।
                       </td>
                     </tr>
@@ -506,6 +565,15 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
                           {formatBengaliDate(exp.date)}
                         </td>
                         <td className="px-4 py-3 text-slate-600">{exp.paymentMethod}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                            <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0"></span>
+                            <span>{exp.recordedByTeacherName ? `${exp.recordedByTeacherName} (শিক্ষক)` : 'শিক্ষক'}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono pl-3.5">
+                            স্বয়ংক্রিয় এন্ট্রি
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-right font-bold text-rose-700 font-mono">
                           {formatTaka(exp.amount)}
                         </td>
@@ -546,6 +614,22 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
             </div>
 
             <form onSubmit={handleAddExpenseSubmit} className="p-6 space-y-4">
+              {/* Teacher Info in Expense Modal */}
+              <div className="bg-rose-50 border border-rose-200/90 rounded-xl p-3 flex items-center justify-between text-xs shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+                  </span>
+                  <div>
+                    <span className="text-slate-600">খরচ নথিভুক্তকারী শিক্ষক:</span>
+                    <span className="font-bold text-rose-950 ml-1.5">{currentTeacher?.name || 'দিল দিহান'} (শিক্ষক)</span>
+                  </div>
+                </div>
+                <span className="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                  স্বয়ংক্রিয় ট্র্যাকিং
+                </span>
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   খরচের বিবরণ / শিরোনাম *

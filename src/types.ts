@@ -37,6 +37,9 @@ export interface Student {
   status: 'সক্রিয়' | 'নিষ্ক্রিয়';
   photoUrl?: string;
   gender: 'ছাত্র' | 'ছাত্রী';
+  addedByTeacherId?: string;
+  addedByTeacherName?: string;
+  createdAt?: string;
 }
 
 export interface Batch {
@@ -53,6 +56,8 @@ export interface Batch {
   active: boolean;
 }
 
+export type TeacherRole = 'শিক্ষক' | 'সিনিয়র শিক্ষক' | 'এডমিন';
+
 export interface Teacher {
   id: string;
   name: string;
@@ -64,6 +69,20 @@ export interface Teacher {
   joiningDate: string;
   salary: number;
   bio?: string;
+  pin?: string; // 4-digit PIN for teacher login
+  role?: TeacherRole;
+  avatarUrl?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  teacherRole?: string;
+  action: string;
+  target: string;
+  timestamp: string;
+  category: 'exam' | 'student' | 'fee' | 'attendance' | 'security' | 'batch';
 }
 
 export type AttendanceStatus = 'উপস্থিত' | 'অনুপস্থিত' | 'বিলম্ব' | 'ছুটি';
@@ -79,6 +98,8 @@ export interface AttendanceRecord {
   date: string; // YYYY-MM-DD
   batchId: string;
   records: StudentAttendance[];
+  takenByTeacherId?: string;
+  takenByTeacherName?: string;
 }
 
 export type FeeType = 'মাসিক টিউশন ফি' | 'ভর্তি ফি' | 'পরীক্ষার ফি' | 'লেকচার শিট/মডেল টেস্ট' | 'অন্যান্য';
@@ -97,6 +118,9 @@ export interface FeePayment {
   paymentMethod: PaymentMethod;
   date: string; // YYYY-MM-DD
   collectedBy: string;
+  collectedByTeacherId?: string;
+  collectedByTeacherName?: string;
+  timestamp?: string;
   note?: string;
 }
 
@@ -111,6 +135,9 @@ export interface Expense {
   recipient: string;
   paymentMethod: PaymentMethod;
   note?: string;
+  recordedByTeacherId?: string;
+  recordedByTeacherName?: string;
+  createdAt?: string;
 }
 
 export interface ExamResult {
@@ -119,6 +146,10 @@ export interface ExamResult {
   grade: string;
   gpa: number;
   remarks?: string;
+  updatedByTeacherId?: string;
+  updatedByTeacherName?: string;
+  updatedAt?: string;
+  scriptPhotoUrl?: string; // uploaded answer script / marksheet image
 }
 
 export interface Exam {
@@ -131,6 +162,9 @@ export interface Exam {
   passingMarks: number;
   examDate: string;
   results: ExamResult[];
+  createdByTeacherId?: string;
+  createdByTeacherName?: string;
+  createdAt?: string;
 }
 
 export interface Notice {

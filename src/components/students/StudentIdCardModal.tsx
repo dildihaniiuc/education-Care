@@ -149,7 +149,7 @@ export const StudentIdCardModal: React.FC<StudentIdCardModalProps> = ({
                       জাহিদুল আলম
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-500 font-medium">পরিচালক / প্রধান শিক্ষক</p>
+                  <p className="text-[10px] text-slate-500 font-medium">শিক্ষকের স্বাক্ষর</p>
                 </div>
               </div>
             </div>

@@ -563,6 +563,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
               </div>
+
+              <div
+                onClick={() => onNavigate('exams')}
+                className="p-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/40 hover:bg-amber-100/70 dark:hover:bg-amber-950/70 border border-amber-200/70 dark:border-amber-900/60 cursor-pointer transition flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center text-[10px]">৫</span>
+                  <span className="font-semibold text-amber-950 dark:text-amber-200">মডেল টেস্ট গ্রহণ ও নম্বর এন্ট্রি</span>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-amber-600" />
+              </div>
             </div>
 
             <div className="pt-2">

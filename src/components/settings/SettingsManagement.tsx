@@ -231,7 +231,7 @@ export const SettingsManagement: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  পরিচালক / প্রধান সমন্বয়কারী
+                  প্রধান সমন্বয়কারী / শিক্ষক প্রতিনিধি
                 </label>
                 <input
                   type="text"

@@ -68,6 +68,41 @@ export const getGradeAndGPA = (marks: number, totalMarks: number = 100): { grade
   return { grade: 'F', gpa: 0.0 };
 };
 
+const enDigits: { [key: string]: string } = {
+  '০': '0',
+  '১': '1',
+  '২': '2',
+  '৩': '3',
+  '৪': '4',
+  '৫': '5',
+  '৬': '6',
+  '৭': '7',
+  '৮': '8',
+  '৯': '9',
+};
+
+export const toEn = (str: string | undefined | null): string => {
+  if (!str) return '';
+  return str.replace(/[০-৯]/g, (w) => enDigits[w] || w);
+};
+
+export const cleanPhoneNumber = (raw: string | undefined | null): string => {
+  if (!raw) return '';
+  const converted = toEn(raw);
+  // Strip all non-digits
+  const digitsOnly = converted.replace(/[^0-9]/g, '');
+  // If starts with 880, strip 88 to match local 01xxxxxxxxx
+  if (digitsOnly.startsWith('880') && digitsOnly.length === 13) {
+    return digitsOnly.slice(2);
+  }
+  return digitsOnly;
+};
+
+export const cleanPasskey = (raw: string | undefined | null): string => {
+  if (!raw) return '';
+  return toEn(raw.trim());
+};
+
 export const generateId = (prefix: string = 'id'): string => {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 };

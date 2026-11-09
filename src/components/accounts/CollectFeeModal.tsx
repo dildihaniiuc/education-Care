@@ -33,7 +33,11 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
   preSelectedStudent,
   onPaymentSuccess,
 }) => {
-  const { students, batches, addFeePayment } = useCoaching();
+  const { students, batches, addFeePayment, currentTeacher, teachers } = useCoaching();
+
+  const autoDetectedTeacher = currentTeacher?.name
+    ? `${currentTeacher.name} (শিক্ষক)`
+    : 'দিল দিহান (শিক্ষক)';
 
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [feeType, setFeeType] = useState<FeeType>('মাসিক টিউশন ফি');
@@ -42,9 +46,15 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
   const [amount, setAmount] = useState(1500);
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('ক্যাশ (নগদ)');
-  const [collectedBy, setCollectedBy] = useState('মো: জাহিদুল আলম');
+  const [collectedBy, setCollectedBy] = useState(autoDetectedTeacher);
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (autoDetectedTeacher) {
+      setCollectedBy(autoDetectedTeacher);
+    }
+  }, [currentTeacher, isOpen]);
 
   useEffect(() => {
     if (preSelectedStudent) {
@@ -82,6 +92,10 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
       return;
     }
 
+    const matchedTeacher = teachers.find(
+      (t) => `${t.name} (শিক্ষক)` === collectedBy || t.name === collectedBy
+    );
+
     const newPayment = addFeePayment({
       studentId: selectedStudentId,
       month,
@@ -93,7 +107,10 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
       dueAmount: 0,
       paymentMethod,
       date: new Date().toISOString().slice(0, 10),
-      collectedBy,
+      collectedBy: collectedBy || autoDetectedTeacher,
+      collectedByTeacherId: matchedTeacher?.id || currentTeacher?.id || 'tch-dildihan',
+      collectedByTeacherName: matchedTeacher?.name || currentTeacher?.name || 'দিল দিহান',
+      timestamp: new Date().toISOString(),
       note,
     });
 
@@ -133,6 +150,23 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Automatic Teacher Detection Notification */}
+          <div className="bg-emerald-50 border border-emerald-200/90 rounded-xl p-3 flex items-center justify-between text-xs shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
+              </span>
+              <div>
+                <span className="text-slate-600">ফি আদায়কারী শিক্ষক:</span>
+                <span className="font-bold text-emerald-950 ml-1.5">{collectedBy}</span>
+              </div>
+            </div>
+            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
+              স্বয়ংক্রিয় ডিটেকশন
+            </span>
+          </div>
+
           {/* Select Student */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -257,14 +291,26 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                আদায়কারী
+                আদায়কারী শিক্ষক *
               </label>
-              <input
-                type="text"
+              <select
                 value={collectedBy}
                 onChange={(e) => setCollectedBy(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600"
-              />
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600 font-medium text-slate-800 bg-white"
+              >
+                {teachers.map((t) => {
+                  const label = `${t.name} (শিক্ষক)`;
+                  const isCurrent = currentTeacher?.id === t.id;
+                  return (
+                    <option key={t.id} value={label}>
+                      {label} {isCurrent ? '★ (লগইনকৃত)' : ''}
+                    </option>
+                  );
+                })}
+                {!teachers.some((t) => `${t.name} (শিক্ষক)` === collectedBy) && (
+                  <option value={collectedBy}>{collectedBy}</option>
+                )}
+              </select>
             </div>
           </div>
 

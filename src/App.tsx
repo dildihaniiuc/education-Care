@@ -18,6 +18,9 @@ import { StudentProfileModal } from './components/students/StudentProfileModal';
 import { StudentIdCardModal } from './components/students/StudentIdCardModal';
 import { CollectFeeModal } from './components/accounts/CollectFeeModal';
 import { MoneyReceiptModal } from './components/accounts/MoneyReceiptModal';
+import { TeacherAuthModal } from './components/auth/TeacherAuthModal';
+import { ScreenLockOverlay } from './components/auth/ScreenLockOverlay';
+import { IndividualMarksModal } from './components/exams/IndividualMarksModal';
 
 import { TabType, Student, FeePayment } from './types';
 
@@ -34,6 +37,10 @@ export function CoachingApp() {
   const [isCollectFeeOpen, setIsCollectFeeOpen] = useState(false);
   const [collectFeeStudent, setCollectFeeStudent] = useState<Student | null>(null);
   const [viewingReceipt, setViewingReceipt] = useState<FeePayment | null>(null);
+
+  // Teacher Auth & Individual Marks Modals
+  const [isTeacherAuthOpen, setIsTeacherAuthOpen] = useState(false);
+  const [individualMarksStudent, setIndividualMarksStudent] = useState<Student | null>(null);
 
   // Handlers
   const handleOpenNewAdmission = () => {
@@ -72,12 +79,13 @@ export function CoachingApp() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col h-full overflow-hidden w-full min-w-0">
         <Header
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
           onNavigate={(tab) => setCurrentTab(tab)}
           onOpenNewAdmission={handleOpenNewAdmission}
           onOpenQuickFee={handleOpenGeneralCollectFee}
+          onOpenTeacherAuth={() => setIsTeacherAuthOpen(true)}
         />
 
         {/* Scrollable Main Container */}
@@ -100,6 +108,7 @@ export function CoachingApp() {
                 onViewStudent={(std) => setViewingStudent(std)}
                 onPrintIdCard={(std) => setPrintingIdCardStudent(std)}
                 onCollectFee={handleCollectFeeForStudent}
+                onEnterMarks={(std) => setIndividualMarksStudent(std)}
               />
             )}
 
@@ -153,6 +162,10 @@ export function CoachingApp() {
             setViewingStudent(null);
             handleCollectFeeForStudent(std);
           }}
+          onEnterMarks={(std) => {
+            setViewingStudent(null);
+            setIndividualMarksStudent(std);
+          }}
         />
       )}
 
@@ -181,6 +194,24 @@ export function CoachingApp() {
           onClose={() => setViewingReceipt(null)}
         />
       )}
+
+      {/* Teacher Authentication Modal */}
+      <TeacherAuthModal
+        isOpen={isTeacherAuthOpen}
+        onClose={() => setIsTeacherAuthOpen(false)}
+      />
+
+      {/* Individual Student Marks Upload Modal */}
+      {individualMarksStudent && (
+        <IndividualMarksModal
+          isOpen={!!individualMarksStudent}
+          student={individualMarksStudent}
+          onClose={() => setIndividualMarksStudent(null)}
+        />
+      )}
+
+      {/* Security Screen Lock Overlay */}
+      <ScreenLockOverlay />
     </div>
   );
 }

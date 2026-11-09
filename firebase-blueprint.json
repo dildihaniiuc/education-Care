@@ -1,0 +1,219 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "Student record in the coaching center",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "roll": { "type": "string" },
+        "nameBn": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "motherName": { "type": "string" },
+        "phone": { "type": "string" },
+        "guardianPhone": { "type": "string" },
+        "classGrade": { "type": "string" },
+        "batchId": { "type": "string" },
+        "group": { "type": "string" },
+        "institution": { "type": "string" },
+        "admissionDate": { "type": "string" },
+        "monthlyFee": { "type": "number" },
+        "status": { "type": "string" },
+        "addedByTeacherId": { "type": "string" },
+        "addedByTeacherName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "roll", "nameBn", "classGrade", "batchId"]
+    },
+    "Exam": {
+      "title": "Exam",
+      "description": "Exam record with student marks and results",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "examType": { "type": "string" },
+        "batchId": { "type": "string" },
+        "classGrade": { "type": "string" },
+        "subject": { "type": "string" },
+        "examDate": { "type": "string" },
+        "totalMarks": { "type": "number" },
+        "passMarks": { "type": "number" },
+        "createdByTeacherId": { "type": "string" },
+        "createdByTeacherName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "classGrade", "subject", "totalMarks", "passMarks"]
+    },
+    "Teacher": {
+      "title": "Teacher",
+      "description": "Coaching center teacher and staff record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "designation": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "qualification": { "type": "string" },
+        "joiningDate": { "type": "string" },
+        "salary": { "type": "number" },
+        "role": { "type": "string" },
+        "pin": { "type": "string" }
+      },
+      "required": ["id", "name", "phone"]
+    },
+    "Batch": {
+      "title": "Batch",
+      "description": "Academic coaching batch",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "classGrade": { "type": "string" },
+        "subject": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "timeSlot": { "type": "string" },
+        "roomNo": { "type": "string" },
+        "monthlyFee": { "type": "number" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "name", "classGrade", "subject", "teacherId"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Daily attendance for a batch",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "batchId": { "type": "string" },
+        "takenByTeacherId": { "type": "string" },
+        "takenByTeacherName": { "type": "string" }
+      },
+      "required": ["id", "date", "batchId"]
+    },
+    "FeePayment": {
+      "title": "FeePayment",
+      "description": "Fee receipt transaction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "batchId": { "type": "string" },
+        "feeType": { "type": "string" },
+        "month": { "type": "string" },
+        "year": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "paymentDate": { "type": "string" },
+        "receiptNo": { "type": "string" },
+        "collectedBy": { "type": "string" },
+        "collectedByTeacherId": { "type": "string" }
+      },
+      "required": ["id", "studentId", "paidAmount", "paymentDate", "receiptNo"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Center expenses",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" },
+        "paidTo": { "type": "string" }
+      },
+      "required": ["id", "title", "amount", "date"]
+    },
+    "ClassRoutine": {
+      "title": "ClassRoutine",
+      "description": "Weekly class schedule",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "day": { "type": "string" },
+        "batchId": { "type": "string" },
+        "subject": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "time": { "type": "string" },
+        "room": { "type": "string" }
+      },
+      "required": ["id", "day", "batchId", "subject", "time"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Audit trail of teacher actions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "teacherName": { "type": "string" },
+        "teacherRole": { "type": "string" },
+        "action": { "type": "string" },
+        "target": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "teacherId", "teacherName", "action", "timestamp"]
+    },
+    "InstituteSettings": {
+      "title": "InstituteSettings",
+      "description": "Coaching center metadata and settings",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "tagline": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "directorName": { "type": "string" },
+        "established": { "type": "string" }
+      },
+      "required": ["name", "phone", "address"]
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Student collection"
+    },
+    "/exams/{examId}": {
+      "schema": "Exam",
+      "description": "Exam collection"
+    },
+    "/teachers/{teacherId}": {
+      "schema": "Teacher",
+      "description": "Teachers collection"
+    },
+    "/batches/{batchId}": {
+      "schema": "Batch",
+      "description": "Batches collection"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "AttendanceRecord",
+      "description": "Attendance records collection"
+    },
+    "/feePayments/{paymentId}": {
+      "schema": "FeePayment",
+      "description": "Fee payments collection"
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Expenses collection"
+    },
+    "/routines/{routineId}": {
+      "schema": "ClassRoutine",
+      "description": "Class routines collection"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Audit logs collection"
+    },
+    "/settings/coaching": {
+      "schema": "InstituteSettings",
+      "description": "Global coaching center settings"
+    }
+  }
+}

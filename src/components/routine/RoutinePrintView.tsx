@@ -213,7 +213,7 @@ export const RoutinePrintView: React.FC<RoutinePrintViewProps> = ({ routine, onC
                 </div>
                 <div>
                   <div className="w-36 sm:w-44 border-b border-slate-800 mx-auto mb-1.5" />
-                  <p className="font-bold text-slate-900">পরিচালক / প্রধান সমন্বয়কারী</p>
+                  <p className="font-bold text-slate-900">প্রধান সমন্বয়কারী / শিক্ষক</p>
                   <p className="text-[10px] text-slate-500">এডুকেশন কেয়ার কোচিং সেন্টার</p>
                 </div>
               </div>

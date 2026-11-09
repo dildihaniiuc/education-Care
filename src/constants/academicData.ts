@@ -20,38 +20,45 @@ export const ALL_CLASS_GRADES: ClassGrade[] = [
 export const SHORTCUT_TEACHERS = [
   {
     name: 'দিল দিহান',
-    designation: 'পরিচালক ও সিনিয়র শিক্ষক',
+    designation: 'শিক্ষক',
     qualification: 'বি.এসসি / এম.এস.সি',
     subjects: ['গনিত', 'উচ্চতর গনিত', 'আইসিটি'],
     phone: '০১৭০০-১১২২৩৩',
   },
   {
     name: 'আশরাফুল আলম',
-    designation: 'সহকারী শিক্ষক',
+    designation: 'শিক্ষক',
     qualification: 'বি.এ / এম.এ (ইংরেজি)',
     subjects: ['ইংরেজি', 'ইংরেজি -১ম', 'ইংরেজি -২য়'],
     phone: '০১৭০০-২২৩৩৪৪',
   },
   {
     name: 'আশরাফ উদ্দীন',
-    designation: 'সহকারী শিক্ষক',
+    designation: 'শিক্ষক',
     qualification: 'বি.এসসি (পদার্থ বিজ্ঞান)',
     subjects: ['পদার্থ বিজ্ঞান', 'বিজ্ঞান', 'গনিত'],
     phone: '০১৭০০-৩৩৪৪৫৫',
   },
   {
     name: 'মাইনুল ইসলাম',
-    designation: 'সহকারী শিক্ষক',
+    designation: 'শিক্ষক',
     qualification: 'বি.এসসি (রসায়ন)',
     subjects: ['রসায়ন', 'বিজ্ঞান', 'বাংলাদেশ ও বিশ্ব পরিচয়'],
     phone: '০১৭০০-৪৪৫৫৬৬',
   },
   {
+    name: 'মো রিয়াজ',
+    designation: 'শিক্ষক',
+    qualification: 'বি.এসসি / বি.এ',
+    subjects: ['গনিত', 'বিজ্ঞান', 'বাংলা'],
+    phone: '০১৭০০-৫৫৬৬৭৭',
+  },
+  {
     name: 'সাফায়েত হোসেন',
-    designation: 'সহকারী শিক্ষক',
+    designation: 'শিক্ষক',
     qualification: 'বি.বি.এস / এম.বি.এস',
     subjects: ['হিসাববিজ্ঞান', 'ব্যবসা উদ্যোগ', 'ফিন্যান্স'],
-    phone: '০১৭০০-৫৫৬৬৭৭',
+    phone: '০১৭০০-৭৭৮৮৯৯',
   },
 ];
 

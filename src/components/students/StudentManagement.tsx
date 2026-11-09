@@ -10,6 +10,7 @@ import {
   CreditCard,
   Phone,
   UserPlus,
+  Award,
 } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
 import { Student } from '../../types';
@@ -22,6 +23,7 @@ interface StudentManagementProps {
   onViewStudent: (student: Student) => void;
   onPrintIdCard: (student: Student) => void;
   onCollectFee: (student: Student) => void;
+  onEnterMarks?: (student: Student) => void;
 }
 
 export const StudentManagement: React.FC<StudentManagementProps> = ({
@@ -30,8 +32,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
   onViewStudent,
   onPrintIdCard,
   onCollectFee,
+  onEnterMarks,
 }) => {
-  const { students, batches, deleteStudent, getStudentAttendanceRate } = useCoaching();
+  const { students, batches, deleteStudent, getStudentAttendanceRate, clearAllStudents } = useCoaching();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('সকল');
@@ -75,14 +78,31 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
           </p>
         </div>
 
-        <button
-          id="btn-add-student"
-          onClick={onOpenNewAdmission}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold shadow-sm transition"
-        >
-          <Plus className="w-4 h-4" />
-          নতুন শিক্ষার্থী ভর্তি
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {students.length > 0 && (
+            <button
+              onClick={() => {
+                if (window.confirm('আপনি কি নিশ্চিত যে সকল শিক্ষার্থীর ডাটা মুছে ফেলতে চান? এটি শিক্ষার্থীর তালিকা পরিষ্কার করবে।')) {
+                  clearAllStudents();
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 hover:bg-rose-100 border border-rose-200 dark:border-rose-900 text-xs font-bold transition cursor-pointer"
+              title="সকল শিক্ষার্থীর ডাটা ক্লিয়ার করুন"
+            >
+              <Trash2 className="w-4 h-4" />
+              সব শিক্ষার্থী ক্লিয়ার করুন
+            </button>
+          )}
+
+          <button
+            id="btn-add-student"
+            onClick={onOpenNewAdmission}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold shadow-sm transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            নতুন শিক্ষার্থী ভর্তি
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -198,6 +218,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[180px]">
                           {std.schoolCollege}
                         </div>
+                        <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
+                          <span>👤 এন্ট্রি: {std.addedByTeacherName || 'দিল দিহান'}</span>
+                        </div>
                       </td>
 
                       {/* Class & Batch */}
@@ -261,15 +284,25 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                           <button
                             onClick={() => onViewStudent(std)}
                             title="বিস্তারিত প্রোফাইল"
-                            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
 
+                          {onEnterMarks && (
+                            <button
+                              onClick={() => onEnterMarks(std)}
+                              title="ইনডিভিজুয়াল মার্কস এন্ট্রি / আপলোড"
+                              className="p-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/50 transition cursor-pointer"
+                            >
+                              <Award className="w-4 h-4" />
+                            </button>
+                          )}
+
                           <button
                             onClick={() => onCollectFee(std)}
                             title="ফি আদায় করুন"
-                            className="p-1.5 rounded-lg text-teal-600 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-200 hover:bg-teal-50 dark:hover:bg-teal-950/50 transition"
+                            className="p-1.5 rounded-lg text-teal-600 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-200 hover:bg-teal-50 dark:hover:bg-teal-950/50 transition cursor-pointer"
                           >
                             <CreditCard className="w-4 h-4" />
                           </button>
@@ -277,7 +310,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                           <button
                             onClick={() => onPrintIdCard(std)}
                             title="ডিজিটাল আইডি কার্ড"
-                            className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition"
+                            className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition cursor-pointer"
                           >
                             <Printer className="w-4 h-4" />
                           </button>
@@ -285,7 +318,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                           <button
                             onClick={() => onEditStudent(std)}
                             title="তথ্য এডিট করুন"
-                            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -293,7 +326,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                           <button
                             onClick={() => handleDelete(std.id, std.nameBn)}
                             title="মুছে ফেলুন"
-                            className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition"
+                            className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
