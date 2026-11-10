@@ -11,6 +11,8 @@ import {
   Lock,
   User,
   Shield,
+  KeyRound,
+  LogOut,
 } from 'lucide-react';
 import { useCoaching } from '../context/CoachingContext';
 import { formatBengaliDate } from '../utils/bengaliUtils';
@@ -22,6 +24,7 @@ interface HeaderProps {
   onOpenNewAdmission: () => void;
   onOpenQuickFee: () => void;
   onOpenTeacherAuth?: () => void;
+  onOpenChangePasskey?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,8 +33,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNewAdmission,
   onOpenQuickFee,
   onOpenTeacherAuth,
+  onOpenChangePasskey,
 }) => {
-  const { settings, darkMode, toggleDarkMode, currentTeacher, lockScreen, isCloudSynced } = useCoaching();
+  const { settings, darkMode, toggleDarkMode, currentTeacher, logoutTeacher, lockScreen, isCloudSynced } = useCoaching();
 
   // Bengali day names
   const today = new Date();
@@ -79,24 +83,48 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Side: Teacher Profile & Actions */}
         <div className="flex items-center gap-2 sm:gap-2.5">
-          {/* Active Teacher Profile Badge */}
-          <button
-            onClick={onOpenTeacherAuth}
-            className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 border border-slate-200 dark:border-slate-700 transition cursor-pointer group shadow-2xs"
-            title="শিক্ষক লগইন ও প্রোফাইল পরিবর্তন"
-          >
-            <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shadow-2xs group-hover:scale-105 transition shrink-0">
-              {currentTeacher ? currentTeacher.name.charAt(0) : <User className="w-3.5 h-3.5" />}
-            </div>
-            <div className="text-left hidden lg:block">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block leading-tight truncate max-w-[110px]">
-                {currentTeacher ? currentTeacher.name : 'শিক্ষক লগইন'}
-              </span>
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block leading-tight truncate max-w-[110px]">
-                {currentTeacher ? currentTeacher.role || currentTeacher.designation : 'লগইন করুন'}
-              </span>
-            </div>
-          </button>
+          {/* Active Teacher Profile Badge with Quick Actions */}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
+            <button
+              onClick={onOpenTeacherAuth}
+              className="flex items-center gap-2 px-2 py-1 hover:bg-white dark:hover:bg-slate-700/60 rounded-lg transition cursor-pointer"
+              title="শিক্ষক প্রোফাইল"
+            >
+              <div className="w-7 h-7 rounded-lg bg-teal-600 text-white font-bold flex items-center justify-center text-xs shadow-2xs shrink-0">
+                {currentTeacher ? currentTeacher.name.charAt(0) : <User className="w-3.5 h-3.5" />}
+              </div>
+              <div className="text-left hidden lg:block">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block leading-tight truncate max-w-[110px]">
+                  {currentTeacher ? currentTeacher.name : 'শিক্ষক'}
+                </span>
+                <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold block leading-tight truncate max-w-[110px]">
+                  {currentTeacher ? currentTeacher.designation : 'লগইনকৃত'}
+                </span>
+              </div>
+            </button>
+
+            {onOpenChangePasskey && (
+              <button
+                onClick={onOpenChangePasskey}
+                title="আমার পাস কী পরিবর্তন করুন"
+                className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:bg-white dark:hover:bg-slate-700 transition cursor-pointer"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                if (window.confirm('আপনি কি শিক্ষক অ্যাকাউন্ট থেকে লগআউট করতে চান?')) {
+                  logoutTeacher();
+                }
+              }}
+              title="লগআউট করে ল্যান্ডিং পেজে যান"
+              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:bg-white dark:hover:bg-slate-700 transition cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-500" />
+            </button>
+          </div>
 
           {/* Screen Lock Button */}
           <button

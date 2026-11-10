@@ -12,9 +12,12 @@ import {
   Trash2,
   Database,
   FileSpreadsheet,
+  Archive,
+  KeyRound,
 } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
 import { InstituteSettings } from '../../types';
+import { ChangePasskeyModal } from '../auth/ChangePasskeyModal';
 
 export const SettingsManagement: React.FC = () => {
   const {
@@ -22,6 +25,8 @@ export const SettingsManagement: React.FC = () => {
     updateSettings,
     clearAllData,
     exportDatabase,
+    exportCsvReport,
+    exportZipArchive,
     importDatabase,
     darkMode,
     toggleDarkMode,
@@ -29,11 +34,13 @@ export const SettingsManagement: React.FC = () => {
     batches,
     feePayments,
     teachers,
+    currentTeacher,
   } = useCoaching();
 
   const [formData, setFormData] = useState<InstituteSettings>(settings);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [clearSuccess, setClearSuccess] = useState(false);
+  const [isChangePasskeyOpen, setIsChangePasskeyOpen] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,23 +317,93 @@ export const SettingsManagement: React.FC = () => {
             </div>
           </div>
 
+          {/* Multi-Format Data Backup Center */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-              <Download className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              ডিজিটাল খাতা ব্যাকআপ ও সংরক্ষণ
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <Download className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                মাল্টি-ফরম্যাট ডেটা ব্যাকআপ ও ডাউনলোড
+              </h3>
+              <span className="text-[10px] font-bold bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 px-2 py-0.5 rounded-full border border-teal-200 dark:border-teal-800">
+                ৩টি ফরম্যাট উপলব্ধ
+              </span>
+            </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              সকল শিক্ষার্থী, ব্যাচ, শিক্ষক, হাজিরা ও আর্থিক লেনদেনের সম্পূর্ণ ফাইল কম্পিউটারে ডাউনলোড করে ব্যাকআপ রাখুন।
+              কোনো তথ্য যেন কখনো না হারায়, সেজন্য সম্পূর্ণ ডেটাবেস JSON, এক্সেল শিট (CSV) এবং অল-ইন-ওয়ান ZIP প্যাকেজে সংরক্ষণ করুন।
             </p>
 
-            <button
-              onClick={exportDatabase}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition shadow-xs"
-            >
-              <Download className="w-4 h-4" />
-              সম্পূর্ণ ডেটা ডাউনলোড (JSON)
-            </button>
+            <div className="space-y-2">
+              {/* 1. All-in-One ZIP Archive */}
+              <button
+                onClick={exportZipArchive}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-teal-700 to-emerald-700 hover:from-teal-800 hover:to-emerald-800 text-white font-bold text-xs transition shadow-xs cursor-pointer"
+                title="সকল ডেটাবেস ও রিপোর্ট একসাথে জিপ ফাইল হিসেবে ডাউনলোড করুন"
+              >
+                <div className="flex items-center gap-2">
+                  <Archive className="w-4 h-4 text-teal-200" />
+                  <span className="text-left">
+                    <span className="block text-white leading-tight">অল-ইন-ওয়ান জিপ প্যাকেজ (ZIP)</span>
+                    <span className="text-[10px] text-teal-100 font-normal">JSON + সকল CSV + অডিট লগ</span>
+                  </span>
+                </div>
+                <Download className="w-4 h-4 shrink-0" />
+              </button>
 
+              {/* 2. Full JSON Database Dump */}
+              <button
+                onClick={exportDatabase}
+                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition cursor-pointer border border-slate-200/80 dark:border-slate-700"
+                title="সম্পূর্ণ ডেটাবেস ব্যাকআপ ডাউনলোড করুন"
+              >
+                <div className="flex items-center gap-2">
+                  <Database className="w-4 h-4 text-blue-600" />
+                  <span>সম্পূর্ণ ডাটাবেস ব্যাকআপ (JSON)</span>
+                </div>
+                <Download className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+
+              {/* 3. Excel-compatible CSV Reports */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-2">
+                  এক্সেল উপযোগী সিএসভি (CSV) রিপোর্ট ডাউনলোড:
+                </span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    onClick={() => exportCsvReport('students')}
+                    className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>শিক্ষার্থী তালিকা (CSV)</span>
+                  </button>
+
+                  <button
+                    onClick={() => exportCsvReport('fees')}
+                    className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-teal-600" />
+                    <span>ফি আদায় খাতা (CSV)</span>
+                  </button>
+
+                  <button
+                    onClick={() => exportCsvReport('expenses')}
+                    className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-rose-600" />
+                    <span>খরচ রিপোর্ট (CSV)</span>
+                  </button>
+
+                  <button
+                    onClick={() => exportCsvReport('exams')}
+                    className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-blue-600" />
+                    <span>পরীক্ষার রেজাল্ট (CSV)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Restore from JSON */}
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 পূর্বে সেভ করা ব্যাকআপ থেকে রিস্টোর
@@ -343,6 +420,32 @@ export const SettingsManagement: React.FC = () => {
               </label>
             </div>
           </div>
+
+          {/* Teacher Passkey & Security Settings */}
+          {currentTeacher && (
+            <div className="bg-white dark:bg-slate-900 border border-blue-200/80 dark:border-blue-900/60 rounded-2xl p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
+                  <KeyRound className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  ব্যক্তিগত পাস কী পরিবর্তন
+                </h4>
+                <span className="text-[10px] bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-bold">
+                  {currentTeacher.name}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                আপনার অ্যাকাউন্টের নিরাপত্তা নিশ্চিত করতে নিয়মিত পাস কী পরিবর্তন করুন। পরিবর্তিত পাস কী সরাসরি ক্লাউড ডাটাবেসে সেভ হবে।
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsChangePasskeyOpen(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer shadow-2xs"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                আমার পাস কী পরিবর্তন করুন
+              </button>
+            </div>
+          )}
 
           {/* Blank Slate Reset (Clear Data) */}
           <div className="bg-white dark:bg-slate-900 border border-rose-200/80 dark:border-rose-900/60 rounded-2xl p-5 shadow-xs space-y-3">
@@ -370,6 +473,12 @@ export const SettingsManagement: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Change Passkey Modal */}
+      <ChangePasskeyModal
+        isOpen={isChangePasskeyOpen}
+        onClose={() => setIsChangePasskeyOpen(false)}
+      />
     </div>
   );
 };

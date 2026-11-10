@@ -32,6 +32,7 @@ import {
   SHORTCUT_TEACHERS,
   SHORTCUT_SUBJECTS,
 } from '../../constants/academicData';
+import { ChangePasskeyModal } from '../auth/ChangePasskeyModal';
 
 export const TeacherManagement: React.FC = () => {
   const {
@@ -50,6 +51,7 @@ export const TeacherManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'teachers' | 'audit'>('teachers');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
+  const [isChangePasskeyOpen, setIsChangePasskeyOpen] = useState(false);
   const [auditSearch, setAuditSearch] = useState('');
   const [auditFilterAction, setAuditFilterAction] = useState<string>('ALL');
 
@@ -386,17 +388,22 @@ export const TeacherManagement: React.FC = () => {
                         </div>
 
                         {isCurrent ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold border border-emerald-300 dark:border-emerald-800">
-                            <CheckCircle2 className="w-3 h-3" /> সক্রিয় লগইন
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold border border-emerald-300 dark:border-emerald-800">
+                              <CheckCircle2 className="w-3 h-3" /> আপনার প্রোফাইল
+                            </span>
+                            <button
+                              onClick={() => setIsChangePasskeyOpen(true)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 dark:border-blue-800 transition cursor-pointer"
+                              title="আমার পাস কী পরিবর্তন করুন"
+                            >
+                              <KeyRound className="w-3 h-3" /> পাস কী পরিবর্তন
+                            </button>
+                          </div>
                         ) : (
-                          <button
-                            onClick={() => loginTeacher(teacher.id, teacher.pin || '1234')}
-                            title="এই শিক্ষকের আইডিতে দ্রুত সুইচ করুন"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 dark:border-blue-800 transition cursor-pointer"
-                          >
-                            <LogIn className="w-3 h-3" /> লগইন করুন
-                          </button>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold border border-slate-200 dark:border-slate-700">
+                            <Lock className="w-3 h-3 text-slate-400" /> সুরক্ষিত পাস কী
+                          </span>
                         )}
                       </div>
 
@@ -914,6 +921,12 @@ export const TeacherManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Change Passkey Modal */}
+      <ChangePasskeyModal
+        isOpen={isChangePasskeyOpen}
+        onClose={() => setIsChangePasskeyOpen(false)}
+      />
     </div>
   );
 };

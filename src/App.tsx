@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CoachingProvider } from './context/CoachingContext';
+import { CoachingProvider, useCoaching } from './context/CoachingContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
@@ -12,6 +12,9 @@ import { ExamManagement } from './components/exams/ExamManagement';
 import { TeacherManagement } from './components/teachers/TeacherManagement';
 import { SettingsManagement } from './components/settings/SettingsManagement';
 
+// Landing Page Gatekeeper
+import { LandingPage } from './components/landing/LandingPage';
+
 // Modals
 import { AddEditStudentModal } from './components/students/AddEditStudentModal';
 import { StudentProfileModal } from './components/students/StudentProfileModal';
@@ -19,12 +22,15 @@ import { StudentIdCardModal } from './components/students/StudentIdCardModal';
 import { CollectFeeModal } from './components/accounts/CollectFeeModal';
 import { MoneyReceiptModal } from './components/accounts/MoneyReceiptModal';
 import { TeacherAuthModal } from './components/auth/TeacherAuthModal';
+import { ChangePasskeyModal } from './components/auth/ChangePasskeyModal';
 import { ScreenLockOverlay } from './components/auth/ScreenLockOverlay';
 import { IndividualMarksModal } from './components/exams/IndividualMarksModal';
 
 import { TabType, Student, FeePayment } from './types';
 
 export function CoachingApp() {
+  const { currentTeacher } = useCoaching();
+
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -38,9 +44,15 @@ export function CoachingApp() {
   const [collectFeeStudent, setCollectFeeStudent] = useState<Student | null>(null);
   const [viewingReceipt, setViewingReceipt] = useState<FeePayment | null>(null);
 
-  // Teacher Auth & Individual Marks Modals
+  // Teacher Auth, Passkey & Individual Marks Modals
   const [isTeacherAuthOpen, setIsTeacherAuthOpen] = useState(false);
+  const [isChangePasskeyOpen, setIsChangePasskeyOpen] = useState(false);
   const [individualMarksStudent, setIndividualMarksStudent] = useState<Student | null>(null);
+
+  // If no teacher is logged in, strictly display the Landing Page Gatekeeper
+  if (!currentTeacher) {
+    return <LandingPage onSuccessLogin={() => {}} />;
+  }
 
   // Handlers
   const handleOpenNewAdmission = () => {
@@ -86,6 +98,7 @@ export function CoachingApp() {
           onOpenNewAdmission={handleOpenNewAdmission}
           onOpenQuickFee={handleOpenGeneralCollectFee}
           onOpenTeacherAuth={() => setIsTeacherAuthOpen(true)}
+          onOpenChangePasskey={() => setIsChangePasskeyOpen(true)}
         />
 
         {/* Scrollable Main Container */}
@@ -199,6 +212,12 @@ export function CoachingApp() {
       <TeacherAuthModal
         isOpen={isTeacherAuthOpen}
         onClose={() => setIsTeacherAuthOpen(false)}
+      />
+
+      {/* Change Passkey Modal */}
+      <ChangePasskeyModal
+        isOpen={isChangePasskeyOpen}
+        onClose={() => setIsChangePasskeyOpen(false)}
       />
 
       {/* Individual Student Marks Upload Modal */}
