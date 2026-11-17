@@ -51,10 +51,10 @@ export default defineConfig(() => {
         registerType: 'prompt',
         manifest: {
           id: '/',
-          name: 'এডুকেশন কেয়ার কোচিং সেন্টার',
-          short_name: 'EC কোচিং',
+          name: 'Education Care Coaching Center',
+          short_name: 'Edu Care',
           description:
-            'এডুকেশন কেয়ার কোচিং সেন্টার (গুলিয়াখালী, সীতাকুণ্ড, চট্টগ্রাম) এর ডিজিটাল শিক্ষা ব্যবস্থাপনা সিস্টেম।',
+            'Education Care Coaching Center - Digital Coaching & Academic Management System.',
           theme_color: '#064E3B',
           background_color: '#ffffff',
           display: 'standalone',
