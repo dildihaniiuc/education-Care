@@ -70,6 +70,12 @@ service cloud.firestore {
       allow write: if isValidId(logId);
     }
 
+    // Monthly financial archives collection: Public read, write with valid ID
+    match /monthlyArchives/{archiveId} {
+      allow read: if true;
+      allow write: if isValidId(archiveId);
+    }
+
     // Settings collection
     match /settings/{settingId} {
       allow read: if true;

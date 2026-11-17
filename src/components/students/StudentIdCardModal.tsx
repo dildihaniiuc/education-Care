@@ -1,7 +1,9 @@
-import React from 'react';
-import { X, Printer, BookOpen, ShieldCheck, User, MapPin, Phone } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { X, Printer, BookOpen, User, Download, Loader2 } from 'lucide-react';
 import { Student, Batch, InstituteSettings } from '../../types';
 import { toBn } from '../../utils/bengaliUtils';
+import { downloadElementAsPdf } from '../../utils/pdfGenerator';
+import { BrandLogo } from '../common/BrandLogo';
 
 interface StudentIdCardModalProps {
   isOpen: boolean;
@@ -18,29 +20,58 @@ export const StudentIdCardModal: React.FC<StudentIdCardModalProps> = ({
   batch,
   settings,
 }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
   if (!isOpen || !student) return null;
 
   const handlePrint = () => {
     window.print();
   };
 
+  const handleDownloadPdf = async () => {
+    if (!cardRef.current) return;
+    setIsDownloading(true);
+    await downloadElementAsPdf(cardRef.current, {
+      filename: `id_card_roll_${student.roll}_${student.nameBn}.pdf`,
+      orientation: 'portrait',
+      marginMm: 20,
+    });
+    setIsDownloading(false);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto print-modal-wrapper">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 print-modal-container">
         {/* Modal Controls (Hidden in print) */}
         <div className="no-print bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
           <span className="font-semibold text-sm">শিক্ষার্থী ডিজিটাল আইডি কার্ড</span>
           <div className="flex items-center gap-2">
             <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition"
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-xs transition cursor-pointer disabled:opacity-60"
             >
-              <Printer className="w-4 h-4" />
-              প্রিন্ট আইডি কার্ড
+              {isDownloading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {isDownloading ? 'তৈরি হচ্ছে...' : 'PDF ডাউনলোড'}
             </button>
             <button
+              type="button"
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              প্রিন্ট
+            </button>
+            <button
+              type="button"
               onClick={onClose}
-              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -51,23 +82,22 @@ export const StudentIdCardModal: React.FC<StudentIdCardModalProps> = ({
         <div className="p-6 bg-slate-100 flex flex-col items-center justify-center">
           {/* Front Side ID Card */}
           <div
+            ref={cardRef}
             id="student-id-card"
             className="w-full max-w-[360px] bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-300 relative printable-card"
           >
             {/* Top decorative header band */}
-            <div className="bg-gradient-to-r from-emerald-800 via-teal-700 to-emerald-900 text-white p-4 text-center relative overflow-hidden">
+            <div className="bg-[#0F3382] text-white p-4 text-center relative overflow-hidden">
               <div className="relative z-10 flex flex-col items-center">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center mb-1 text-white border border-white/30 shadow-inner">
-                  <BookOpen className="w-5 h-5" />
-                </div>
+                <BrandLogo variant="badge" className="w-16 h-16 mb-1.5 border border-white/20" />
                 <h3 className="font-bold text-base leading-tight tracking-tight">
                   {settings.name}
                 </h3>
-                <p className="text-[11px] text-emerald-200 font-medium mt-0.5">
+                <p className="text-[11px] text-blue-200 font-medium mt-0.5">
                   {settings.address}, {settings.district}
                 </p>
-                <div className="mt-1 bg-amber-400 text-slate-900 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  শিক্ষার্থী পরিচয়পত্র (২০২৬)
+                <div className="mt-1.5 bg-white text-[#0F3382] text-[10px] font-bold px-2.5 py-0.5 rounded-lg tracking-wider">
+                  শিক্ষার্থী পরিচয়পত্র
                 </div>
               </div>
             </div>
@@ -107,16 +137,20 @@ export const StudentIdCardModal: React.FC<StudentIdCardModalProps> = ({
                   <span className="text-slate-500 font-medium">ব্যাচের নাম:</span>
                   <span className="font-semibold text-slate-800">{batch?.name || 'সাধারণ ব্যাচ'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">পিতার নাম:</span>
-                  <span className="font-semibold text-slate-800">{student.fatherName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">প্রতিষ্ঠান:</span>
-                  <span className="font-semibold text-slate-800 truncate max-w-[180px]">
-                    {student.schoolCollege}
-                  </span>
-                </div>
+                {student.fatherName && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">পিতার নাম:</span>
+                    <span className="font-semibold text-slate-800">{student.fatherName}</span>
+                  </div>
+                )}
+                {student.schoolCollege && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">প্রতিষ্ঠান:</span>
+                    <span className="font-semibold text-slate-800 truncate max-w-[180px]">
+                      {student.schoolCollege}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-medium">জরুরি অভিভাবক:</span>
                   <span className="font-bold text-emerald-800 font-mono">
@@ -146,7 +180,7 @@ export const StudentIdCardModal: React.FC<StudentIdCardModalProps> = ({
                 <div className="text-right">
                   <div className="h-6 flex items-end justify-end">
                     <span className="text-xs font-serif italic text-slate-800 font-bold underline decoration-emerald-600">
-                      জাহিদুল আলম
+                      {settings.directorName || 'দিল দিহান'}
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-500 font-medium">শিক্ষকের স্বাক্ষর</p>

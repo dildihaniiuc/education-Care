@@ -17,25 +17,24 @@ import {
   Trash2,
   ShieldCheck,
   Download,
+  FileText,
+  History,
+  CalendarX2,
+  Eye,
+  CheckCircle2,
 } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
-import { FeePayment, Expense, ExpenseCategory, PaymentMethod } from '../../types';
+import { FeePayment, MonthlyArchive } from '../../types';
 import { toBn, formatTaka, formatBengaliDate, bengaliMonths } from '../../utils/bengaliUtils';
+import { AddExpenseModal } from './AddExpenseModal';
+import { LedgerReportModal } from './LedgerReportModal';
+import { MonthCloseModal } from './MonthCloseModal';
+import { MonthlyArchiveModal } from './MonthlyArchiveModal';
 
 interface AccountsManagementProps {
   onOpenCollectFee: () => void;
   onViewReceipt: (payment: FeePayment) => void;
 }
-
-const expenseCategories: ExpenseCategory[] = [
-  'শিক্ষক সম্মানী',
-  'রুম ভাড়া',
-  'বিদ্যুৎ ও ইউটিলিটি',
-  'শিট ও খাতা প্রিন্টিং',
-  'আপ্যায়ন ও স্টেশনারি',
-  'বিজ্ঞাপন ও প্রচার',
-  'অন্যান্য',
-];
 
 export const AccountsManagement: React.FC<AccountsManagementProps> = ({
   onOpenCollectFee,
@@ -44,34 +43,31 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
   const {
     feePayments,
     expenses,
+    monthlyArchives,
     students,
     batches,
     deleteFeePayment,
     addExpense,
     deleteExpense,
+    closeAndClearMonthAccounts,
     getStudentDueInfo,
     settings,
     currentTeacher,
     exportDatabase,
   } = useCoaching();
 
-  const [activeSubTab, setActiveSubTab] = useState<'fees' | 'dues' | 'expenses' | 'summary'>('fees');
+  const [activeSubTab, setActiveSubTab] = useState<'fees' | 'dues' | 'expenses' | 'history'>('fees');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState<string>('সকল');
 
-  // Expense modal
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
-  const [expenseForm, setExpenseForm] = useState({
-    title: '',
-    category: 'শিক্ষক সম্মানী' as ExpenseCategory,
-    amount: 1000,
-    date: new Date().toISOString().slice(0, 10),
-    recipient: '',
-    paymentMethod: 'ক্যাশ (নগদ)' as PaymentMethod,
-    note: '',
-  });
-
+  const [closeMonthModalOpen, setCloseMonthModalOpen] = useState(false);
+  const [closeSuccessMsg, setCloseSuccessMsg] = useState('');
+  const [selectedArchive, setSelectedArchive] = useState<MonthlyArchive | null>(null);
   const [copiedDueId, setCopiedDueId] = useState<string | null>(null);
+  const [ledgerPdfModalOpen, setLedgerPdfModalOpen] = useState(false);
+
+  const currentBengaliMonthName = bengaliMonths[new Date().getMonth()] || 'সেপ্টেম্বর';
 
   // Financial calculations
   const totalIncome = feePayments.reduce((acc, curr) => acc + curr.paidAmount, 0);
@@ -102,28 +98,7 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
     return matchesSearch && matchesMonth;
   });
 
-  const handleAddExpenseSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!expenseForm.title.trim()) return;
-    addExpense({
-      ...expenseForm,
-      recordedByTeacherId: currentTeacher?.id || 'tch-dildihan',
-      recordedByTeacherName: currentTeacher?.name || 'দিল দিহান',
-      createdAt: new Date().toISOString(),
-    });
-    setExpenseModalOpen(false);
-    setExpenseForm({
-      title: '',
-      category: 'শিক্ষক সম্মানী',
-      amount: 1000,
-      date: new Date().toISOString().slice(0, 10),
-      recipient: '',
-      paymentMethod: 'ক্যাশ (নগদ)',
-      note: '',
-    });
-  };
-
-  const handleCopyDueSms = (studentName: string, amount: number, phone: string, id: string) => {
+  const handleCopyDueSms = (studentName: string, amount: number, _phone: string, id: string) => {
     const text = `সম্মানিত অভিভাবক, এডুকেশন কেয়ার কোচিং সেন্টারে আপনার সন্তান ${studentName}-এর চলতি মাসের ফি বাবদ ${formatTaka(
       amount
     )} বকেয়া রয়েছে। অনুগ্রহ করে দ্রুত পরিশোধের অনুরোধ করা যাচ্ছে। - এডুকেশন কেয়ার কোচিং সেন্টার, গুলিয়াখালী, সীতাকুণ্ড। যোগাযোগ: ${settings.phone}`;
@@ -148,23 +123,40 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
 
         <div className="flex flex-wrap items-center gap-2">
           <button
+            onClick={() => setLedgerPdfModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs sm:text-sm font-semibold transition border border-emerald-200 cursor-pointer"
+            title="আয়-ব্যয় ও আদায়কারী শিক্ষকের পূর্ণাঙ্গ PDF রিপোর্ট দেখুন ও ডাউনলোড করুন"
+          >
+            <FileText className="w-4 h-4 text-emerald-700" />
+            আয়-ব্যয় PDF রিপোর্ট
+          </button>
+          <button
             onClick={exportDatabase}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold transition border border-slate-300"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold transition border border-slate-300 cursor-pointer"
             title="সবগুলো আয় ও ব্যয়ের তথ্য এক্সপোর্ট করুন"
           >
             <Download className="w-4 h-4 text-slate-600" />
             লেজার ব্যাকআপ (JSON)
           </button>
           <button
+            onClick={() => setCloseMonthModalOpen(true)}
+            disabled={feePayments.length === 0 && expenses.length === 0}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs sm:text-sm font-semibold transition border border-amber-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title="মাস শেষে গত মাসের আয় ও ব্যয় আর্কাইভ করে বর্তমান হিসাব ডিলিট করুন"
+          >
+            <CalendarX2 className="w-4 h-4 text-amber-700" />
+            মাস শেষ হিসাব ক্লোজ
+          </button>
+          <button
             onClick={onOpenCollectFee}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-semibold shadow-xs transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-semibold shadow-xs transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             ফি আদায় করুন
           </button>
           <button
             onClick={() => setExpenseModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-semibold shadow-xs transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-semibold shadow-xs transition cursor-pointer"
           >
             <TrendingDown className="w-4 h-4" />
             খরচ যুক্ত করুন
@@ -172,34 +164,39 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
         </div>
       </div>
 
-      {/* Cloud Protection & Data Loss Guarantee Card */}
-      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-emerald-500/20">
-        <div className="flex items-start sm:items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 text-emerald-300 shadow-inner">
-            <ShieldCheck className="w-6 h-6" />
+      {closeSuccessMsg && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-3 text-xs font-semibold flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{closeSuccessMsg}</span>
+          </div>
+          <button type="button" onClick={() => setCloseSuccessMsg('')} className="p-1 text-emerald-600 hover:text-emerald-900">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Teacher Tracking Info Bar */}
+      <div className="bg-[#0F3382] text-white rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 text-emerald-300">
+            <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-bold text-sm sm:text-base text-emerald-100">
-                ৩-স্তরবিশিষ্ট আর্থিক ডেটা সুরক্ষা ও শিক্ষক ট্র্যাকিং নিশ্চিত
-              </h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-400/30">
-                রিয়েল-টাইম ক্লাউড সিঙ্ক চালু
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
-              কোন শিক্ষক কোন শিক্ষার্থী থেকে কত টাকা বেতন নিয়েছেন বা কোন খরচের বিল নথিভুক্ত করেছেন—তার প্রতিটি সূক্ষ্ম তথ্য তারিখ ও সময়সহ Google Cloud Firestore ডাটাবেস ও স্থায়ী অডিট লগে অপরিবর্তনীয়ভাবে সংরক্ষিত হয়। ফলে কোনো তথ্য হারানোর সম্ভাবনা নেই।
+            <h3 className="font-bold text-sm text-white">
+              আয়-ব্যয় হিসাব ও বিগত মাসের আর্কাইভ সুরক্ষিত
+            </h3>
+            <p className="text-xs text-blue-100 mt-0.5">
+              মাস শেষে হিসাব ডিলিট করলে শুধু চলতি মাসের আয় ও ব্যয় রিসেট হবে। বিগত সকল মাসের আয়-ব্যয় স্থায়ীভাবে সংরক্ষিত থাকবে।
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="text-right">
-            <span className="text-[11px] text-emerald-300 block font-medium">লগইনকৃত শিক্ষক:</span>
-            <span className="text-xs font-bold text-white bg-white/10 px-2.5 py-1 rounded-lg border border-white/20 inline-block mt-0.5">
-              {currentTeacher?.name || 'দিল দিহান'} (শিক্ষক)
-            </span>
-          </div>
+        <div className="text-left md:text-right shrink-0">
+          <span className="text-[11px] text-blue-200 block">লগইনকৃত শিক্ষক:</span>
+          <span className="text-xs font-bold text-white bg-white/10 px-2.5 py-1 rounded-lg inline-block mt-0.5">
+            {currentTeacher?.name || 'শিক্ষক'}
+          </span>
         </div>
       </div>
 
@@ -253,10 +250,10 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
       </div>
 
       {/* Sub tabs navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200">
+      <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto">
         <button
           onClick={() => setActiveSubTab('fees')}
-          className={`pb-3 px-4 text-xs sm:text-sm font-semibold border-b-2 transition ${
+          className={`pb-3 px-4 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap cursor-pointer ${
             activeSubTab === 'fees'
               ? 'border-teal-600 text-teal-800'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -267,7 +264,7 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
 
         <button
           onClick={() => setActiveSubTab('dues')}
-          className={`pb-3 px-4 text-xs sm:text-sm font-semibold border-b-2 transition ${
+          className={`pb-3 px-4 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap cursor-pointer ${
             activeSubTab === 'dues'
               ? 'border-amber-600 text-amber-800'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -278,13 +275,25 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
 
         <button
           onClick={() => setActiveSubTab('expenses')}
-          className={`pb-3 px-4 text-xs sm:text-sm font-semibold border-b-2 transition ${
+          className={`pb-3 px-4 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap cursor-pointer ${
             activeSubTab === 'expenses'
               ? 'border-rose-600 text-rose-800'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           কোচিং সেন্টারের খরচ ({toBn(expenses.length)})
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('history')}
+          className={`pb-3 px-4 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap cursor-pointer inline-flex items-center gap-1.5 ${
+            activeSubTab === 'history'
+              ? 'border-[#0F3382] text-[#0F3382]'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <History className="w-3.5 h-3.5" />
+          বিগত মাসের হিসাব (রিচেক) ({toBn(monthlyArchives.length)})
         </button>
       </div>
 
@@ -423,7 +432,7 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
             <div className="flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
               <span>
-                চলতি সেপ্টেম্বর মাসের টিউশন ফি বকেয়া রয়েছে মোট <strong>{toBn(dueStudents.length)}</strong> জন শিক্ষার্থীর।
+                চলতি {currentBengaliMonthName} মাসের টিউশন ফি বকেয়া রয়েছে মোট <strong>{toBn(dueStudents.length)}</strong> জন শিক্ষার্থীর।
                 অভিভাবকের মোবাইলে এক ক্লিকে তাগাদা বার্তা পাঠানো যাবে।
               </span>
             </div>
@@ -599,132 +608,124 @@ export const AccountsManagement: React.FC<AccountsManagementProps> = ({
         </div>
       )}
 
-      {/* Add Expense Modal */}
-      {expenseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto no-print">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
-            <div className="bg-rose-700 px-6 py-4 text-white flex items-center justify-between">
-              <h3 className="font-bold text-lg">কোচিং সেন্টারের খরচ এন্ট্রি</h3>
-              <button
-                onClick={() => setExpenseModalOpen(false)}
-                className="p-1 rounded-lg text-white/80 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
+      {/* TAB 4: PAST MONTHS ARCHIVE (RE-CHECK) */}
+      {activeSubTab === 'history' && (
+        <div className="space-y-4">
+          <div className="bg-[#DCEEFF]/60 border border-blue-200 rounded-2xl p-4 text-xs text-[#0F244D] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <History className="w-5 h-5 text-[#0F3382] shrink-0" />
+              <span>
+                মাস শেষে ক্লোজ করা বিগত মাসগুলোর মোট আয়, মোট ব্যয় এবং প্রতিটি রসিদ ও খরচের বিস্তারিত তালিকা এখান থেকে রিচেক ও PDF ডাউনলোড করা যাবে।
+              </span>
             </div>
-
-            <form onSubmit={handleAddExpenseSubmit} className="p-6 space-y-4">
-              {/* Teacher Info in Expense Modal */}
-              <div className="bg-rose-50 border border-rose-200/90 rounded-xl p-3 flex items-center justify-between text-xs shadow-xs">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
-                  </span>
-                  <div>
-                    <span className="text-slate-600">খরচ নথিভুক্তকারী শিক্ষক:</span>
-                    <span className="font-bold text-rose-950 ml-1.5">{currentTeacher?.name || 'দিল দিহান'} (শিক্ষক)</span>
-                  </div>
-                </div>
-                <span className="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
-                  স্বয়ংক্রিয় ট্র্যাকিং
-                </span>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  খরচের বিবরণ / শিরোনাম *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="যেমন: মাসিক ভবন ভাড়া বা ফটোকপি খরচ"
-                  value={expenseForm.title}
-                  onChange={(e) => setExpenseForm({ ...expenseForm, title: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-rose-600 focus:ring-1 focus:ring-rose-600"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    খরচের খাত
-                  </label>
-                  <select
-                    value={expenseForm.category}
-                    onChange={(e) =>
-                      setExpenseForm({ ...expenseForm, category: e.target.value as ExpenseCategory })
-                    }
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-rose-600 focus:ring-1 focus:ring-rose-600"
-                  >
-                    {expenseCategories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    টাকার পরিমাণ *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={expenseForm.amount}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, amount: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-rose-600 focus:ring-1 focus:ring-rose-600 font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    টাকা প্রাপকের নাম / দোকান
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="যেমন: সীতাকুণ্ড প্রেস"
-                    value={expenseForm.recipient}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, recipient: e.target.value })}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-rose-600 focus:ring-1 focus:ring-rose-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    তারিখ
-                  </label>
-                  <input
-                    type="date"
-                    value={expenseForm.date}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-rose-600 focus:ring-1 focus:ring-rose-600"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setExpenseModalOpen(false)}
-                  className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl"
-                >
-                  বাতিল
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-xl shadow-md"
-                >
-                  খরচ সংরক্ষণ করুন
-                </button>
-              </div>
-            </form>
+            <span className="font-bold text-xs text-[#0F3382] shrink-0">
+              মোট আর্কাইভ: {toBn(monthlyArchives.length)} টি মাস
+            </span>
           </div>
+
+          {monthlyArchives.length === 0 ? (
+            <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center space-y-2">
+              <History className="w-10 h-10 text-slate-300 mx-auto" />
+              <h3 className="text-sm font-bold text-slate-700">এখনো কোনো বিগত মাসের হিসাব আর্কাইভ করা হয়নি</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                মাস শেষে &quot;মাস শেষ হিসাব ক্লোজ&quot; বাটনে ক্লিক করলে ওই মাসের মোট আয় ও ব্যয় এখানে স্থায়ীভাবে সংরক্ষিত হবে এবং চলতি হিসাব রিসেট হবে।
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {monthlyArchives.map((arc) => (
+                <div
+                  key={arc.id}
+                  className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-[#0F3382]/40 transition flex flex-col justify-between gap-4"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="px-3 py-1 rounded-xl bg-[#DCEEFF] text-[#0F3382] font-bold text-xs">
+                        {arc.monthLabel}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {formatBengaliDate(arc.closedAt.slice(0, 10))}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <span className="text-emerald-800 font-semibold">মোট আয় ({toBn(arc.feePayments.length)} রসিদ)</span>
+                        <span className="font-bold text-emerald-700 font-mono">{formatTaka(arc.totalIncome)}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-rose-50 border border-rose-100">
+                        <span className="text-rose-800 font-semibold">মোট ব্যয় ({toBn(arc.expenses.length)} এন্ট্রি)</span>
+                        <span className="font-bold text-rose-700 font-mono">{formatTaka(arc.totalExpenses)}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span className="text-slate-700 font-semibold">নেট ব্যালেন্স</span>
+                        <span className="font-bold text-slate-900 font-mono">{formatTaka(arc.netBalance)}</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 mt-3">
+                      হিসাব ক্লোজ করেছেন: <strong className="text-slate-700">{arc.closedByTeacherName}</strong>
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedArchive(arc)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-[#0F3382] hover:bg-[#0B2666] text-white text-xs font-bold transition cursor-pointer"
+                  >
+                    <Eye className="w-4 h-4" />
+                    বিস্তারিত আয়-ব্যয় রিচেক / PDF
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
+
+      {/* Modular Account Modals */}
+      <AddExpenseModal
+        isOpen={expenseModalOpen}
+        onClose={() => setExpenseModalOpen(false)}
+        teacherId={currentTeacher?.id || 'tch-dildihan'}
+        teacherName={currentTeacher?.name || 'শিক্ষক'}
+        onSubmitExpense={addExpense}
+      />
+
+      <LedgerReportModal
+        isOpen={ledgerPdfModalOpen}
+        onClose={() => setLedgerPdfModalOpen(false)}
+        settings={settings}
+        feePayments={feePayments}
+        expenses={expenses}
+        students={students}
+        totalIncome={totalIncome}
+        totalExpenses={totalExpenses}
+        netCashBalance={netCashBalance}
+      />
+
+      <MonthCloseModal
+        isOpen={closeMonthModalOpen}
+        onClose={() => setCloseMonthModalOpen(false)}
+        feePayments={feePayments}
+        expenses={expenses}
+        onConfirmArchiveAndClear={closeAndClearMonthAccounts}
+        onCompleted={(archived) => {
+          setCloseSuccessMsg(
+            `${archived.monthLabel} এর মোট আয় (${formatTaka(archived.totalIncome)}) ও ব্যয় (${formatTaka(archived.totalExpenses)}) আর্কাইভ করে বর্তমান হিসাব রিসেট করা হয়েছে।`
+          );
+          setActiveSubTab('history');
+        }}
+      />
+
+      <MonthlyArchiveModal
+        archive={selectedArchive}
+        students={students}
+        settings={settings}
+        onClose={() => setSelectedArchive(null)}
+      />
     </div>
   );
 };

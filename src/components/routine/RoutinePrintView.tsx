@@ -1,8 +1,9 @@
-import React from 'react';
-import { Printer, X, Download, Calendar, Clock, MapPin, User, CheckCircle2 } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Printer, X, Download, Calendar, Clock, CheckCircle2, Loader2 } from 'lucide-react';
 import { ClassRoutine } from '../../types';
 import { useCoaching } from '../../context/CoachingContext';
 import { toBn } from '../../utils/bengaliUtils';
+import { downloadElementAsPdf } from '../../utils/pdfGenerator';
 
 interface RoutinePrintViewProps {
   routine: ClassRoutine;
@@ -11,17 +12,30 @@ interface RoutinePrintViewProps {
 
 export const RoutinePrintView: React.FC<RoutinePrintViewProps> = ({ routine, onClose }) => {
   const { settings } = useCoaching();
+  const routineRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!routineRef.current) return;
+    setIsDownloading(true);
+    await downloadElementAsPdf(routineRef.current, {
+      filename: `class_routine_${routine.classGrade}_${routine.shift}.pdf`,
+      orientation: 'portrait',
+      marginMm: 8,
+    });
+    setIsDownloading(false);
   };
 
   // Find max periods across days
   const maxPeriods = Math.max(1, ...routine.days.map((d) => d.periods.length));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden border border-slate-200 dark:border-slate-800 max-h-[96vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto print-modal-wrapper">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden border border-slate-200 dark:border-slate-800 max-h-[96vh] flex flex-col print-modal-container">
         {/* Modal Controls Header - Hidden on Print */}
         <div className="bg-slate-900 px-6 py-3.5 text-white flex items-center justify-between no-print shrink-0">
           <div className="flex items-center gap-2">
@@ -33,13 +47,28 @@ export const RoutinePrintView: React.FC<RoutinePrintViewProps> = ({ routine, onC
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md transition cursor-pointer"
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
+              className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md transition cursor-pointer disabled:opacity-60"
             >
-              <Printer className="w-4 h-4" />
-              প্রিন্ট / PDF সংরক্ষণ
+              {isDownloading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {isDownloading ? 'PDF তৈরি হচ্ছে...' : 'PDF ডাউনলোড'}
             </button>
             <button
+              type="button"
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md transition cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              প্রিন্ট
+            </button>
+            <button
+              type="button"
               onClick={onClose}
               className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
             >
@@ -51,8 +80,9 @@ export const RoutinePrintView: React.FC<RoutinePrintViewProps> = ({ routine, onC
         {/* Printable Document Container */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center">
           <div
+            ref={routineRef}
             id="printable-routine-area"
-            className="bg-white text-slate-900 w-full max-w-[210mm] min-h-[297mm] p-6 sm:p-10 shadow-lg print:shadow-none print:p-6 print:m-0 rounded-xl print:rounded-none border border-slate-200 print:border-none flex flex-col justify-between text-left relative"
+            className="bg-white text-slate-900 w-full max-w-[210mm] min-h-[297mm] p-6 sm:p-10 shadow-lg print:shadow-none print:p-6 print:m-0 rounded-xl print:rounded-none border border-slate-200 print:border-none flex flex-col justify-between text-left relative printable-card"
           >
             {/* Top Institutional Header */}
             <div>

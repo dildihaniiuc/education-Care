@@ -27,9 +27,10 @@ import { ScreenLockOverlay } from './components/auth/ScreenLockOverlay';
 import { IndividualMarksModal } from './components/exams/IndividualMarksModal';
 
 import { TabType, Student, FeePayment } from './types';
+import { LayoutDashboard, Users, CreditCard, Award, Menu as MenuIcon } from 'lucide-react';
 
 export function CoachingApp() {
-  const { currentTeacher } = useCoaching();
+  const { currentTeacher, students, batches, settings } = useCoaching();
 
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -47,6 +48,7 @@ export function CoachingApp() {
   // Teacher Auth, Passkey & Individual Marks Modals
   const [isTeacherAuthOpen, setIsTeacherAuthOpen] = useState(false);
   const [isChangePasskeyOpen, setIsChangePasskeyOpen] = useState(false);
+  const [passkeyModalTab, setPasskeyModalTab] = useState<'passkey' | 'phone'>('passkey');
   const [individualMarksStudent, setIndividualMarksStudent] = useState<Student | null>(null);
 
   // If no teacher is logged in, strictly display the Landing Page Gatekeeper
@@ -79,6 +81,16 @@ export function CoachingApp() {
     setViewingReceipt(payment);
   };
 
+  const idCardBatch = printingIdCardStudent
+    ? batches.find((b) => b.id === printingIdCardStudent.batchId)
+    : undefined;
+  const receiptStudent = viewingReceipt
+    ? students.find((s) => s.id === viewingReceipt.studentId)
+    : undefined;
+  const receiptBatch = receiptStudent
+    ? batches.find((b) => b.id === receiptStudent.batchId)
+    : undefined;
+
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans text-slate-800 dark:text-slate-100 transition-colors duration-200">
       {/* Sidebar Navigation */}
@@ -91,19 +103,22 @@ export function CoachingApp() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden w-full min-w-0">
+      <div className="flex-1 flex flex-col h-full overflow-hidden w-full min-w-0 app-main-shell">
         <Header
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
           onNavigate={(tab) => setCurrentTab(tab)}
           onOpenNewAdmission={handleOpenNewAdmission}
           onOpenQuickFee={handleOpenGeneralCollectFee}
           onOpenTeacherAuth={() => setIsTeacherAuthOpen(true)}
-          onOpenChangePasskey={() => setIsChangePasskeyOpen(true)}
+          onOpenChangePasskey={() => {
+            setPasskeyModalTab('passkey');
+            setIsChangePasskeyOpen(true);
+          }}
         />
 
         {/* Scrollable Main Container */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
-          <div className="max-w-7xl mx-auto pb-10">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#F4F6FA] dark:bg-slate-950 transition-colors duration-200 pb-24 md:pb-10">
+          <div className="max-w-7xl mx-auto">
             {currentTab === 'dashboard' && (
               <Dashboard
                 onNavigate={(tab) => setCurrentTab(tab)}
@@ -145,6 +160,62 @@ export function CoachingApp() {
             {currentTab === 'settings' && <SettingsManagement />}
           </div>
         </main>
+
+        {/* Mobile Bottom Tab Bar (Matches Reference Image Bottom Bar) */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 grid grid-cols-5 h-16 px-1 no-print">
+          <button
+            type="button"
+            onClick={() => setCurrentTab('dashboard')}
+            className={`flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition cursor-pointer ${
+              currentTab === 'dashboard' ? 'text-[#0F3382] dark:text-blue-400' : 'text-slate-400'
+            }`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            <span>হোম</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentTab('students')}
+            className={`flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition cursor-pointer ${
+              currentTab === 'students' ? 'text-[#0F3382] dark:text-blue-400' : 'text-slate-400'
+            }`}
+          >
+            <Users className="w-5 h-5" />
+            <span>শিক্ষার্থী</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentTab('accounts')}
+            className={`flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition cursor-pointer ${
+              currentTab === 'accounts' ? 'text-[#0F3382] dark:text-blue-400' : 'text-slate-400'
+            }`}
+          >
+            <CreditCard className="w-5 h-5" />
+            <span>হিসাব</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentTab('exams')}
+            className={`flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition cursor-pointer ${
+              currentTab === 'exams' ? 'text-[#0F3382] dark:text-blue-400' : 'text-slate-400'
+            }`}
+          >
+            <Award className="w-5 h-5" />
+            <span>পরীক্ষা</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(true)}
+            className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-slate-400 hover:text-[#0F3382] transition cursor-pointer"
+          >
+            <MenuIcon className="w-5 h-5" />
+            <span>মেনু</span>
+          </button>
+        </nav>
       </div>
 
       {/* Global Modals */}
@@ -161,6 +232,7 @@ export function CoachingApp() {
 
       {viewingStudent && (
         <StudentProfileModal
+          isOpen={!!viewingStudent}
           student={viewingStudent}
           onClose={() => setViewingStudent(null)}
           onEdit={(std) => {
@@ -184,7 +256,10 @@ export function CoachingApp() {
 
       {printingIdCardStudent && (
         <StudentIdCardModal
+          isOpen={!!printingIdCardStudent}
           student={printingIdCardStudent}
+          batch={idCardBatch}
+          settings={settings}
           onClose={() => setPrintingIdCardStudent(null)}
         />
       )}
@@ -196,14 +271,18 @@ export function CoachingApp() {
             setIsCollectFeeOpen(false);
             setCollectFeeStudent(null);
           }}
-          initialStudent={collectFeeStudent || undefined}
-          onFeeSuccess={handleFeePaymentSuccess}
+          preSelectedStudent={collectFeeStudent}
+          onPaymentSuccess={handleFeePaymentSuccess}
         />
       )}
 
       {viewingReceipt && (
         <MoneyReceiptModal
+          isOpen={!!viewingReceipt}
           payment={viewingReceipt}
+          student={receiptStudent}
+          batch={receiptBatch}
+          settings={settings}
           onClose={() => setViewingReceipt(null)}
         />
       )}
@@ -212,12 +291,18 @@ export function CoachingApp() {
       <TeacherAuthModal
         isOpen={isTeacherAuthOpen}
         onClose={() => setIsTeacherAuthOpen(false)}
+        onOpenChangePasskey={(tab) => {
+          setIsTeacherAuthOpen(false);
+          setPasskeyModalTab(tab);
+          setIsChangePasskeyOpen(true);
+        }}
       />
 
-      {/* Change Passkey Modal */}
+      {/* Change Passkey & Phone Modal */}
       <ChangePasskeyModal
         isOpen={isChangePasskeyOpen}
         onClose={() => setIsChangePasskeyOpen(false)}
+        defaultTab={passkeyModalTab}
       />
 
       {/* Individual Student Marks Upload Modal */}

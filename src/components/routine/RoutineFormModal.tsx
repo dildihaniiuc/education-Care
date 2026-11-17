@@ -102,22 +102,22 @@ export const RoutineFormModal: React.FC<RoutineFormModalProps> = ({
           periods: [
             {
               periodNo: 1,
-              subject: 'গনিত',
-              teacherName: 'দিল দিহান',
+              subject: '',
+              teacherName: '',
               timeSlot: times.period1,
               roomNo: '১০১',
             },
             {
               periodNo: 2,
-              subject: 'ইংরেজি',
-              teacherName: 'আশরাফুল আলম',
+              subject: '',
+              teacherName: '',
               timeSlot: times.period2,
               roomNo: '১০১',
             },
             {
               periodNo: 3,
-              subject: 'বিজ্ঞান',
-              teacherName: 'আশরাফ উদ্দীন',
+              subject: '',
+              teacherName: '',
               timeSlot: times.period3,
               roomNo: '১০১',
             },
@@ -193,9 +193,8 @@ export const RoutineFormModal: React.FC<RoutineFormModalProps> = ({
         dayShort: short,
         periods: Array.from({ length: periodsPerDay }).map((_, i) => ({
           periodNo: (i + 1) as 1 | 2 | 3,
-          subject: i === 0 ? 'গনিত' : i === 1 ? 'ইংরেজি' : 'বিজ্ঞান',
-          teacherName:
-            i === 0 ? 'দিল দিহান' : i === 1 ? 'আশরাফুল আলম' : 'আশরাফ উদ্দীন',
+          subject: '',
+          teacherName: '',
           timeSlot:
             i === 0 ? times.period1 : i === 1 ? times.period2 : times.period3,
           roomNo: '১০১',
@@ -227,9 +226,8 @@ export const RoutineFormModal: React.FC<RoutineFormModalProps> = ({
         dayShort: short,
         periods: Array.from({ length: periodsPerDay }).map((_, i) => ({
           periodNo: (i + 1) as 1 | 2 | 3,
-          subject: i === 0 ? 'গনিত' : i === 1 ? 'ইংরেজি' : 'বিজ্ঞান',
-          teacherName:
-            i === 0 ? 'দিল দিহান' : i === 1 ? 'আশরাফুল আলম' : 'আশরাফ উদ্দীন',
+          subject: '',
+          teacherName: '',
           timeSlot:
             i === 0 ? times.period1 : i === 1 ? times.period2 : times.period3,
           roomNo: '১০১',
@@ -255,8 +253,8 @@ export const RoutineFormModal: React.FC<RoutineFormModalProps> = ({
           const nextNo = (currentPeriods.length + 1) as 1 | 2 | 3;
           currentPeriods.push({
             periodNo: nextNo,
-            subject: nextNo === 2 ? 'ইংরেজি' : 'বিজ্ঞান',
-            teacherName: nextNo === 2 ? 'আশরাফুল আলম' : 'আশরাফ উদ্দীন',
+            subject: '',
+            teacherName: '',
             timeSlot:
               nextNo === 2 ? times.period2 : times.period3,
             roomNo: '১০১',
@@ -286,8 +284,8 @@ export const RoutineFormModal: React.FC<RoutineFormModalProps> = ({
             const nextNo = (currentPeriods.length + 1) as 1 | 2 | 3;
             currentPeriods.push({
               periodNo: nextNo,
-              subject: nextNo === 2 ? 'ইংরেজি' : 'বিজ্ঞান',
-              teacherName: nextNo === 2 ? 'আশরাফুল আলম' : 'আশরাফ উদ্দীন',
+              subject: '',
+              teacherName: '',
               timeSlot: nextNo === 2 ? times.period2 : times.period3,
               roomNo: '১০১',
             });

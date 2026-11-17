@@ -48,18 +48,12 @@
     },
     "Teacher": {
       "title": "Teacher",
-      "description": "Coaching center teacher and staff record",
+      "description": "Coaching center teacher record",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
-        "designation": { "type": "string" },
         "phone": { "type": "string" },
-        "email": { "type": "string" },
-        "qualification": { "type": "string" },
-        "joiningDate": { "type": "string" },
-        "salary": { "type": "number" },
-        "role": { "type": "string" },
         "pin": { "type": "string" }
       },
       "required": ["id", "name", "phone"]
@@ -172,6 +166,24 @@
         "established": { "type": "string" }
       },
       "required": ["name", "phone", "address"]
+    },
+    "MonthlyArchive": {
+      "title": "MonthlyArchive",
+      "description": "Archived monthly income and expense snapshot for past-month recheck",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "month": { "type": "string" },
+        "year": { "type": "number" },
+        "monthLabel": { "type": "string" },
+        "totalIncome": { "type": "number" },
+        "totalExpenses": { "type": "number" },
+        "netBalance": { "type": "number" },
+        "closedAt": { "type": "string" },
+        "closedByTeacherId": { "type": "string" },
+        "closedByTeacherName": { "type": "string" }
+      },
+      "required": ["id", "month", "year", "monthLabel", "totalIncome", "totalExpenses", "netBalance", "closedAt"]
     }
   },
   "firestore": {
@@ -210,6 +222,10 @@
     "/auditLogs/{logId}": {
       "schema": "AuditLog",
       "description": "Audit logs collection"
+    },
+    "/monthlyArchives/{archiveId}": {
+      "schema": "MonthlyArchive",
+      "description": "Archived monthly income and expense records"
     },
     "/settings/coaching": {
       "schema": "InstituteSettings",

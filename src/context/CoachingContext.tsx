@@ -11,6 +11,7 @@ import {
   AttendanceStatus,
   ClassRoutine,
   AuditLog,
+  MonthlyArchive,
 } from '../types';
 import {
   initialInstituteSettings,
@@ -29,10 +30,11 @@ import {
   onSnapshot,
   setDoc,
   deleteDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import JSZip from 'jszip';
-import { generateId, toBn, getGradeAndGPA, cleanPhoneNumber, cleanPasskey } from '../utils/bengaliUtils';
+import { generateId, toBn, getGradeAndGPA, cleanPhoneNumber, cleanPasskey, bengaliMonths } from '../utils/bengaliUtils';
 
 interface CoachingContextType {
   // Theme state
@@ -43,9 +45,11 @@ interface CoachingContextType {
 
   // Teacher Authentication & Security
   currentTeacher: Teacher | null;
+  lastLoginPhone: string;
   loginTeacher: (teacherId: string, pin: string) => { success: boolean; message: string };
   loginWithPhoneAndPasskey: (phone: string, passkey: string) => { success: boolean; message: string; teacher?: Teacher };
   changeTeacherPasskey: (teacherId: string, currentPasskey: string, newPasskey: string) => { success: boolean; message: string };
+  changeTeacherPhone: (teacherId: string, currentPasskey: string, newPhone: string) => { success: boolean; message: string };
   logoutTeacher: () => void;
   isScreenLocked: boolean;
   lockScreen: () => void;
@@ -63,6 +67,7 @@ interface CoachingContextType {
   attendance: AttendanceRecord[];
   feePayments: FeePayment[];
   expenses: Expense[];
+  monthlyArchives: MonthlyArchive[];
   exams: Exam[];
 
   // Student CRUD
@@ -89,6 +94,11 @@ interface CoachingContextType {
   deleteFeePayment: (id: string) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   deleteExpense: (id: string) => void;
+  closeAndClearMonthAccounts: (params: {
+    month: string;
+    year: number;
+    scope: 'all' | 'month';
+  }) => MonthlyArchive | null;
   getStudentDueInfo: (studentId: string) => { totalPaid: number; dueEstimate: number; payments: FeePayment[] };
 
   // Exams & Marks
@@ -127,6 +137,15 @@ const CoachingContext = createContext<CoachingContextType | undefined>(undefined
 const STORAGE_KEY = 'education_care_khata_db_v3';
 const THEME_KEY = 'education_care_theme_mode';
 const RESET_DATA_KEY = 'education_care_v3_cleared_teachers_students';
+const CLEAN_STAFF_V4_KEY = 'education_care_v4_clean_staff_routines';
+const LAST_LOGIN_PHONE_KEY = 'education_care_last_teacher_phone';
+
+const stripTeacherMeta = (t: Teacher): Teacher => ({
+  id: t.id,
+  name: t.name,
+  phone: t.phone,
+  pin: t.pin,
+});
 
 export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Dark Mode Theme initialization
@@ -179,6 +198,22 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         localStorage.removeItem(`${STORAGE_KEY}_teachers`);
         localStorage.setItem(RESET_DATA_KEY, 'true');
       }
+
+      if (!localStorage.getItem(CLEAN_STAFF_V4_KEY)) {
+        // Strip legacy non-name staff metadata and remove sample class-teacher routines once
+        const savedRoutines = localStorage.getItem(`${STORAGE_KEY}_routines`);
+        if (savedRoutines) {
+          try {
+            const parsedRoutines: ClassRoutine[] = JSON.parse(savedRoutines);
+            const cleanedRoutines = parsedRoutines.filter((r) => r.id !== 'rtn-sample-10');
+            localStorage.setItem(`${STORAGE_KEY}_routines`, JSON.stringify(cleanedRoutines));
+          } catch {
+            // ignore
+          }
+        }
+        deleteDoc(doc(db, 'routines', 'rtn-sample-10')).catch(() => {});
+        localStorage.setItem(CLEAN_STAFF_V4_KEY, 'true');
+      }
     } catch {
       // ignore
     }
@@ -208,23 +243,21 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Normalize designations to 'শিক্ষক' and ensure unique phones and passkeys
           const normalized: Teacher[] = parsed.map((t: Teacher) => {
             const staffPreset = defaultStaffTeachers.find(
               (st) => st.id === t.id || st.name.trim() === t.name.trim()
             );
-            return {
-              ...t,
-              designation: 'শিক্ষক',
-              role: 'শিক্ষক' as const,
-              phone: t.phone || staffPreset?.phone || '01812-345678',
-              pin: t.pin && t.pin !== '1234' ? t.pin : (staffPreset?.pin || '1122'),
-            };
+            return stripTeacherMeta({
+              id: t.id,
+              name: t.name,
+              phone: t.phone || staffPreset?.phone || '',
+              pin: t.pin ? t.pin : (staffPreset?.pin || '1122'),
+            });
           });
           const hasRiaz = normalized.some((t: Teacher) => t.name === 'মো রিয়াজ');
           if (!hasRiaz) {
             const riazPreset = defaultStaffTeachers.find((t) => t.name === 'মো রিয়াজ');
-            if (riazPreset) normalized.push(riazPreset);
+            if (riazPreset) normalized.push(stripTeacherMeta(riazPreset));
           }
           return normalized;
         }
@@ -232,25 +265,26 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // fallback
       }
     }
-    return defaultStaffTeachers;
+    return defaultStaffTeachers.map(stripTeacherMeta);
   });
 
-  // Current logged in teacher - null triggers the Gatekeeper Landing Page
-  const [currentTeacher, setCurrentTeacher] = useState<Teacher | null>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_current_teacher`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.id && parsed.name) {
-          return {
-            ...parsed,
-            designation: 'শিক্ষক',
-            role: 'শিক্ষক',
-          };
-        }
-      } catch {}
+  // Remember last logged-in teacher's phone number for quick re-entry
+  const [lastLoginPhone, setLastLoginPhone] = useState<string>(() => {
+    try {
+      return localStorage.getItem(LAST_LOGIN_PHONE_KEY) || '';
+    } catch {
+      return '';
     }
-    return null; // By default require teacher login
+  });
+
+  // Session-only logged-in teacher: exiting/reloading always requires passkey verification
+  const [currentTeacher, setCurrentTeacher] = useState<Teacher | null>(() => {
+    try {
+      localStorage.removeItem(`${STORAGE_KEY}_current_teacher`);
+    } catch {
+      // ignore
+    }
+    return null;
   });
 
   // Screen lock for security
@@ -270,7 +304,6 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         id: 'log-security-init',
         teacherId: defaultStaffTeachers[0]?.id || 'tch-dildihan',
         teacherName: defaultStaffTeachers[0]?.name || 'দিল দিহান',
-        teacherRole: 'শিক্ষক',
         action: 'সিস্টেম নিরাপত্তা শুরু',
         target: 'ডিজিটাল কোচিং সিকিউরিটি ও শিক্ষক অডিট ট্রেল চালু করা হয়েছে',
         timestamp: new Date().toISOString(),
@@ -294,6 +327,17 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return saved ? JSON.parse(saved) : initialExpenses;
   });
 
+  const [monthlyArchives, setMonthlyArchives] = useState<MonthlyArchive[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY}_monthly_archives`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  });
+
   const [exams, setExams] = useState<Exam[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_exams`);
     return saved ? JSON.parse(saved) : initialExams;
@@ -301,15 +345,23 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [routines, setRoutines] = useState<ClassRoutine[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_routines`);
-    return saved ? JSON.parse(saved) : initialRoutines;
+    if (saved) {
+      try {
+        const parsed: ClassRoutine[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((r) => r.id !== 'rtn-sample-10');
+        }
+      } catch {}
+    }
+    return initialRoutines;
   });
 
-  // Persist current teacher
+  // Ensure active session is never persisted across exits/reloads
   useEffect(() => {
-    if (currentTeacher) {
-      localStorage.setItem(`${STORAGE_KEY}_current_teacher`, JSON.stringify(currentTeacher));
-    } else {
+    try {
       localStorage.removeItem(`${STORAGE_KEY}_current_teacher`);
+    } catch {
+      // ignore
     }
   }, [currentTeacher]);
 
@@ -326,7 +378,6 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       id: generateId('log'),
       teacherId: currentTeacher?.id || 'admin',
       teacherName: currentTeacher?.name || 'অফিস এডমিন',
-      teacherRole: currentTeacher?.role || 'শিক্ষক',
       action,
       target,
       timestamp: new Date().toISOString(),
@@ -349,8 +400,14 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: 'ভুল নিরাপত্তা পিন (PIN) / পাস কী!' };
     }
     setCurrentTeacher(teacher);
+    setLastLoginPhone(teacher.phone);
+    try {
+      localStorage.setItem(LAST_LOGIN_PHONE_KEY, teacher.phone);
+    } catch {
+      // ignore
+    }
     setIsScreenLocked(false);
-    addAuditLog('শিক্ষক লগইন', `${teacher.name} (${teacher.designation}) সিস্টেমে প্রবেশ করেছেন`, 'security');
+    addAuditLog('শিক্ষক লগইন', `${teacher.name} সিস্টেমে প্রবেশ করেছেন`, 'security');
     return { success: true, message: `স্বাগতম, ${teacher.name}!` };
   };
 
@@ -390,10 +447,16 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     setCurrentTeacher(teacher);
+    setLastLoginPhone(teacher.phone);
+    try {
+      localStorage.setItem(LAST_LOGIN_PHONE_KEY, teacher.phone);
+    } catch {
+      // ignore
+    }
     setIsScreenLocked(false);
     addAuditLog(
       'শিক্ষক লগইন',
-      `${teacher.name} (${teacher.designation}) মোবাইল ও পাস কী দিয়ে সিস্টেমে প্রবেশ করেছেন`,
+      `${teacher.name} মোবাইল ও পাস কী দিয়ে সিস্টেমে প্রবেশ করেছেন`,
       'security'
     );
     return { success: true, message: `স্বাগতম, ${teacher.name}!`, teacher };
@@ -421,18 +484,129 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: 'নতুন পাস কী কমপক্ষে ৪ ডিজিট বা অক্ষরের হতে হবে।' };
     }
 
-    const updatedTeacher: Teacher = { ...teacher, pin: cleanNew };
-    setTeachers((prev) => prev.map((t) => (t.id === teacherId ? updatedTeacher : t)));
+    // Delete old passkey completely and store only the new passkey as the official credential
+    const updatedTeacher: Teacher = stripTeacherMeta({
+      id: teacher.id,
+      name: teacher.name,
+      phone: teacher.phone,
+      pin: cleanNew,
+    });
+    const staleDuplicates = teachers.filter(
+      (t) =>
+        t.id !== teacherId &&
+        cleanPhoneNumber(t.phone) === cleanPhoneNumber(teacher.phone)
+    );
+    const nextTeachers = teachers
+      .filter(
+        (t) =>
+          t.id === teacherId ||
+          cleanPhoneNumber(t.phone) !== cleanPhoneNumber(teacher.phone)
+      )
+      .map((t) => (t.id === teacherId ? updatedTeacher : stripTeacherMeta(t)));
+
+    setTeachers(nextTeachers);
     setCurrentTeacher(updatedTeacher);
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_teachers`, JSON.stringify(nextTeachers));
+    } catch {
+      // ignore
+    }
 
     addAuditLog('পাস কী পরিবর্তন', `${teacher.name} নিজের পাস কী সফলভাবে পরিবর্তন করেছেন`, 'security');
 
-    // Cloud Firestore Sync
-    setDoc(doc(db, 'teachers', teacherId), { pin: cleanNew }, { merge: true }).catch((e) =>
-      handleFirestoreError(e, OperationType.UPDATE, `teachers/${teacherId}`)
+    // Atomic full-document overwrite in Cloud Firestore (deletes old passkey cleanly across all devices)
+    const batch = writeBatch(db);
+    nextTeachers.forEach((t) => {
+      batch.set(doc(db, 'teachers', t.id), stripTeacherMeta(t));
+    });
+    staleDuplicates.forEach((dup) => {
+      batch.delete(doc(db, 'teachers', dup.id));
+    });
+    batch.commit().catch((e) =>
+      handleFirestoreError(e, OperationType.UPDATE, `teachers/${teacher.id}`)
     );
 
-    return { success: true, message: 'আপনার পাস কী সফলভাবে পরিবর্তিত হয়েছে।' };
+    return { success: true, message: 'আগের পাস কী মুছে নতুন পাস কী আসল হিসেবে সংরক্ষণ করা হয়েছে।' };
+  };
+
+  const changeTeacherPhone = (
+    teacherId: string,
+    currentPasskey: string,
+    newPhone: string
+  ): { success: boolean; message: string } => {
+    if (!currentTeacher || currentTeacher.id !== teacherId) {
+      return { success: false, message: 'নিরাপত্তার স্বার্থে শুধুমাত্র নিজের মোবাইল নম্বর পরিবর্তন করা যাবে।' };
+    }
+    const teacher = teachers.find((t) => t.id === teacherId);
+    if (!teacher) {
+      return { success: false, message: 'শিক্ষক পাওয়া যায়নি।' };
+    }
+    const cleanOld = cleanPasskey(currentPasskey);
+    if (cleanOld !== cleanPasskey(teacher.pin || '1234')) {
+      return { success: false, message: 'পাস কী সঠিক নয়! নম্বর পরিবর্তনের জন্য সঠিক পাস কী দিন।' };
+    }
+
+    const cleanedDigits = cleanPhoneNumber(newPhone);
+    if (!cleanedDigits || cleanedDigits.length < 10 || cleanedDigits.length > 14) {
+      return { success: false, message: 'অনুগ্রহ করে একটি সঠিক ১১-ডিজিটের মোবাইল নম্বর দিন।' };
+    }
+
+    const duplicate = teachers.find(
+      (t) => t.id !== teacherId && cleanPhoneNumber(t.phone) === cleanedDigits
+    );
+    if (duplicate) {
+      return { success: false, message: `এই মোবাইল নম্বরটি ইতোমধ্যে অন্য একজন শিক্ষক (${duplicate.name}) ব্যবহার করছেন!` };
+    }
+
+    const formattedPhone =
+      cleanedDigits.length === 11
+        ? `${cleanedDigits.slice(0, 5)}-${cleanedDigits.slice(5)}`
+        : cleanedDigits;
+
+    const oldPhoneDigits = cleanPhoneNumber(teacher.phone);
+    // Delete old phone number completely and replace with the new official phone number
+    const updatedTeacher: Teacher = stripTeacherMeta({
+      id: teacher.id,
+      name: teacher.name,
+      phone: formattedPhone,
+      pin: teacher.pin,
+    });
+    const staleDuplicates = teachers.filter(
+      (t) => t.id !== teacherId && cleanPhoneNumber(t.phone) === oldPhoneDigits
+    );
+    const nextTeachers = teachers
+      .filter((t) => t.id === teacherId || cleanPhoneNumber(t.phone) !== oldPhoneDigits)
+      .map((t) => (t.id === teacherId ? updatedTeacher : stripTeacherMeta(t)));
+
+    setTeachers(nextTeachers);
+    setCurrentTeacher(updatedTeacher);
+    setLastLoginPhone(formattedPhone);
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_teachers`, JSON.stringify(nextTeachers));
+      localStorage.setItem(LAST_LOGIN_PHONE_KEY, formattedPhone);
+    } catch {
+      // ignore
+    }
+
+    addAuditLog(
+      'ফোন নম্বর পরিবর্তন',
+      `${teacher.name} নিজের লগইন মোবাইল নম্বর পরিবর্তন করে ${formattedPhone} করেছেন`,
+      'security'
+    );
+
+    // Atomic full-document overwrite in Cloud Firestore (deletes old phone cleanly across all devices)
+    const batch = writeBatch(db);
+    nextTeachers.forEach((t) => {
+      batch.set(doc(db, 'teachers', t.id), stripTeacherMeta(t));
+    });
+    staleDuplicates.forEach((dup) => {
+      batch.delete(doc(db, 'teachers', dup.id));
+    });
+    batch.commit().catch((e) =>
+      handleFirestoreError(e, OperationType.UPDATE, `teachers/${teacher.id}`)
+    );
+
+    return { success: true, message: `আগের নম্বর বদলে ${formattedPhone} আসল নম্বর হিসেবে সংরক্ষণ করা হয়েছে।` };
   };
 
   const logoutTeacher = () => {
@@ -448,8 +622,8 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const unlockScreen = (pin: string): boolean => {
-    const expectedPin = currentTeacher?.pin || '1234';
-    if (pin.trim() === expectedPin || pin.trim() === '1234') {
+    const expectedPin = cleanPasskey(currentTeacher?.pin || '1234');
+    if (cleanPasskey(pin) === expectedPin) {
       setIsScreenLocked(false);
       addAuditLog('স্ক্রিন আনলক', `${currentTeacher?.name || 'শিক্ষক'} স্ক্রিন আনলক করেছেন`, 'security');
       return true;
@@ -481,7 +655,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         onSnapshot(
           collection(db, 'students'),
           (snapshot) => {
-            if (!snapshot.empty) {
+            if (!snapshot.empty || !snapshot.metadata.fromCache) {
               const list = snapshot.docs.map((d) => d.data() as Student);
               setStudents(list);
               setIsCloudSynced(true);
@@ -496,7 +670,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         onSnapshot(
           collection(db, 'exams'),
           (snapshot) => {
-            if (!snapshot.empty) {
+            if (!snapshot.empty || !snapshot.metadata.fromCache) {
               const list = snapshot.docs.map((d) => d.data() as Exam);
               setExams(list);
               setIsCloudSynced(true);
@@ -511,7 +685,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         onSnapshot(
           collection(db, 'batches'),
           (snapshot) => {
-            if (!snapshot.empty) {
+            if (!snapshot.empty || !snapshot.metadata.fromCache) {
               const list = snapshot.docs.map((d) => d.data() as Batch);
               setBatches(list);
               setIsCloudSynced(true);
@@ -527,13 +701,15 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           collection(db, 'teachers'),
           (snapshot) => {
             if (!snapshot.empty) {
-              const list = snapshot.docs.map((d) => d.data() as Teacher);
-              const normalized = list.map((t) => ({
-                ...t,
-                designation: 'শিক্ষক',
-                role: 'শিক্ষক' as const,
-              }));
-              setTeachers(normalized);
+              const list = snapshot.docs.map((d) =>
+                stripTeacherMeta({ ...(d.data() as Teacher), id: d.id })
+              );
+              setTeachers(list);
+              setCurrentTeacher((prev) => {
+                if (!prev) return null;
+                const match = list.find((t) => t.id === prev.id);
+                return match ? match : prev;
+              });
               setIsCloudSynced(true);
             }
           },
@@ -546,7 +722,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         onSnapshot(
           collection(db, 'attendance'),
           (snapshot) => {
-            if (!snapshot.empty) {
+            if (!snapshot.empty || !snapshot.metadata.fromCache) {
               const list = snapshot.docs.map((d) => d.data() as AttendanceRecord);
               setAttendance(list);
               setIsCloudSynced(true);
@@ -561,7 +737,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         onSnapshot(
           collection(db, 'feePayments'),
           (snapshot) => {
-            if (!snapshot.empty) {
+            if (!snapshot.empty || !snapshot.metadata.fromCache) {
               const list = snapshot.docs.map((d) => d.data() as FeePayment);
               setFeePayments(list);
               setIsCloudSynced(true);
@@ -576,7 +752,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         onSnapshot(
           collection(db, 'expenses'),
           (snapshot) => {
-            if (!snapshot.empty) {
+            if (!snapshot.empty || !snapshot.metadata.fromCache) {
               const list = snapshot.docs.map((d) => d.data() as Expense);
               setExpenses(list);
               setIsCloudSynced(true);
@@ -591,8 +767,10 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         onSnapshot(
           collection(db, 'routines'),
           (snapshot) => {
-            if (!snapshot.empty) {
-              const list = snapshot.docs.map((d) => d.data() as ClassRoutine);
+            if (!snapshot.empty || !snapshot.metadata.fromCache) {
+              const list = snapshot.docs
+                .map((d) => d.data() as ClassRoutine)
+                .filter((r) => r.id !== 'rtn-sample-10');
               setRoutines(list);
               setIsCloudSynced(true);
             }
@@ -601,7 +779,25 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         )
       );
 
-      // 10. Audit Logs
+      // 10. Monthly Financial Archives (for past month recheck)
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'monthlyArchives'),
+          (snapshot) => {
+            if (!snapshot.empty || !snapshot.metadata.fromCache) {
+              const list = snapshot.docs.map((d) => d.data() as MonthlyArchive);
+              list.sort(
+                (a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime()
+              );
+              setMonthlyArchives(list);
+              setIsCloudSynced(true);
+            }
+          },
+          (error) => handleFirestoreError(error, OperationType.GET, 'monthlyArchives')
+        )
+      );
+
+      // 11. Audit Logs
       unsubs.push(
         onSnapshot(
           collection(db, 'auditLogs'),
@@ -655,6 +851,10 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_expenses`, JSON.stringify(expenses));
   }, [expenses]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY}_monthly_archives`, JSON.stringify(monthlyArchives));
+  }, [monthlyArchives]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_exams`, JSON.stringify(exams));
@@ -741,17 +941,16 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
-  // Teacher Actions
+  // Teacher Actions (Only name + phone + passkey persisted)
   const addTeacher = (newTeacher: Omit<Teacher, 'id'>) => {
     const teacher: Teacher = {
-      ...newTeacher,
       id: generateId('tch'),
-      pin: newTeacher.pin || '1234',
-      designation: newTeacher.designation || 'শিক্ষক',
-      role: newTeacher.role || 'শিক্ষক',
+      name: newTeacher.name.trim(),
+      phone: newTeacher.phone,
+      pin: cleanPasskey(newTeacher.pin || '1234') || '1234',
     };
     setTeachers((prev) => [...prev, teacher]);
-    addAuditLog('নতুন শিক্ষক নিয়োগ', `${teacher.name} (${teacher.designation})`, 'security');
+    addAuditLog('নতুন শিক্ষক যুক্ত', `${teacher.name}`, 'security');
 
     // Cloud Firestore Sync
     setDoc(doc(db, 'teachers', teacher.id), teacher).catch((e) =>
@@ -760,14 +959,27 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const updateTeacher = (id: string, updated: Partial<Teacher>) => {
-    setTeachers((prev) => prev.map((t) => (t.id === id ? { ...t, ...updated } : t)));
-    const tch = teachers.find((t) => t.id === id);
-    addAuditLog('শিক্ষক তথ্য আপডেট', `${tch?.name || 'শিক্ষক'} এর প্রোফাইল আপডেট`, 'security');
+    const cleanUpdated: Partial<Teacher> = {};
+    if (updated.name !== undefined) cleanUpdated.name = updated.name.trim();
+    if (updated.phone !== undefined) cleanUpdated.phone = updated.phone;
+    if (updated.pin !== undefined) cleanUpdated.pin = updated.pin;
 
-    // Cloud Firestore Sync
-    setDoc(doc(db, 'teachers', id), updated, { merge: true }).catch((e) =>
-      handleFirestoreError(e, OperationType.UPDATE, `teachers/${id}`)
+    const nextTeachers = teachers.map((t) =>
+      t.id === id ? stripTeacherMeta({ ...t, ...cleanUpdated }) : stripTeacherMeta(t)
     );
+    setTeachers(nextTeachers);
+    setCurrentTeacher((prev) =>
+      prev && prev.id === id ? stripTeacherMeta({ ...prev, ...cleanUpdated }) : prev
+    );
+    const tch = teachers.find((t) => t.id === id);
+    addAuditLog('শিক্ষক তথ্য আপডেট', `${cleanUpdated.name || tch?.name || 'শিক্ষক'} এর নাম হালনাগাদ`, 'security');
+
+    // Cloud Firestore Sync (replace with clean name+phone+pin doc so removed fields are cleared)
+    nextTeachers.forEach((t) => {
+      setDoc(doc(db, 'teachers', t.id), stripTeacherMeta(t)).catch((e) =>
+        handleFirestoreError(e, OperationType.UPDATE, `teachers/${t.id}`)
+      );
+    });
   };
 
   const deleteTeacher = (id: string) => {
@@ -829,20 +1041,21 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return Math.round((presentClasses / totalClasses) * 100);
   };
 
-  // Fees & Accounts
+  // Fees & Accounts (Strictly locks collector identity to logged-in teacher)
   const addFeePayment = (payment: Omit<FeePayment, 'id' | 'receiptNo'>): FeePayment => {
     const nextReceiptNumber = feePayments.length + 1001;
-    const defaultTeacherName = currentTeacher?.name ? `${currentTeacher.name} (শিক্ষক)` : 'দিল দিহান (শিক্ষক)';
-    const teacherId = currentTeacher?.id || 'tch-dildihan';
+    const enforcedTeacherName = currentTeacher?.name || 'অজ্ঞাত শিক্ষক';
+    const enforcedCollectorLabel = `${enforcedTeacherName} (শিক্ষক)`;
+    const enforcedTeacherId = currentTeacher?.id || 'unknown';
 
     const newRecord: FeePayment = {
       ...payment,
       id: generateId('fee'),
       receiptNo: `EC-${toBn(payment.year)}-${toBn(nextReceiptNumber)}`,
-      collectedBy: payment.collectedBy || defaultTeacherName,
-      collectedByTeacherId: payment.collectedByTeacherId || teacherId,
-      collectedByTeacherName: payment.collectedByTeacherName || currentTeacher?.name || 'দিল দিহান',
-      timestamp: payment.timestamp || new Date().toISOString(),
+      collectedBy: enforcedCollectorLabel,
+      collectedByTeacherId: enforcedTeacherId,
+      collectedByTeacherName: enforcedTeacherName,
+      timestamp: new Date().toISOString(),
     };
     setFeePayments((prev) => [newRecord, ...prev]);
 
@@ -909,22 +1122,104 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
+  // Close & clear monthly income/expense while saving permanent snapshot for past-month recheck
+  const closeAndClearMonthAccounts = ({
+    month,
+    year,
+    scope,
+  }: {
+    month: string;
+    year: number;
+    scope: 'all' | 'month';
+  }): MonthlyArchive | null => {
+    const monthIndex = bengaliMonths.indexOf(month);
+    const targetPrefix =
+      monthIndex >= 0 ? `${year}-${String(monthIndex + 1).padStart(2, '0')}` : '';
+
+    const targetPayments =
+      scope === 'all'
+        ? feePayments
+        : feePayments.filter((p) => p.month === month && p.year === year);
+
+    const targetExpenses =
+      scope === 'all'
+        ? expenses
+        : expenses.filter((e) => (targetPrefix ? (e.date || '').startsWith(targetPrefix) : true));
+
+    if (targetPayments.length === 0 && targetExpenses.length === 0) {
+      return null;
+    }
+
+    const totalIncome = targetPayments.reduce((acc, curr) => acc + curr.paidAmount, 0);
+    const totalExpenses = targetExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+    const netBalance = totalIncome - totalExpenses;
+    const closedAt = new Date().toISOString();
+    const closedByTeacherId = currentTeacher?.id || 'unknown';
+    const closedByTeacherName = currentTeacher?.name || 'শিক্ষক';
+
+    const archive: MonthlyArchive = {
+      id: generateId('arc'),
+      month,
+      year,
+      monthLabel: `${month} ${toBn(year)}`,
+      totalIncome,
+      totalExpenses,
+      netBalance,
+      feePayments: targetPayments,
+      expenses: targetExpenses,
+      closedAt,
+      closedByTeacherId,
+      closedByTeacherName,
+    };
+
+    const paymentIds = new Set(targetPayments.map((p) => p.id));
+    const expenseIds = new Set(targetExpenses.map((e) => e.id));
+
+    setMonthlyArchives((prev) => [archive, ...prev]);
+    setFeePayments((prev) => prev.filter((p) => !paymentIds.has(p.id)));
+    setExpenses((prev) => prev.filter((e) => !expenseIds.has(e.id)));
+
+    addAuditLog(
+      'মাসিক হিসাব ক্লোজ ও ডিলিট',
+      `${archive.monthLabel}: আয় ${toBn(totalIncome)} টাকা ও ব্যয় ${toBn(totalExpenses)} টাকা আর্কাইভ করে বর্তমান হিসাব রিসেট করা হয়েছে`,
+      'fee'
+    );
+
+    // Save archive permanently in Firestore
+    setDoc(doc(db, 'monthlyArchives', archive.id), archive).catch((e) =>
+      handleFirestoreError(e, OperationType.WRITE, `monthlyArchives/${archive.id}`)
+    );
+
+    // Remove cleared active receipts & expenses from Firestore active ledgers
+    targetPayments.forEach((p) => {
+      deleteDoc(doc(db, 'feePayments', p.id)).catch((e) =>
+        handleFirestoreError(e, OperationType.DELETE, `feePayments/${p.id}`)
+      );
+    });
+    targetExpenses.forEach((exp) => {
+      deleteDoc(doc(db, 'expenses', exp.id)).catch((e) =>
+        handleFirestoreError(e, OperationType.DELETE, `expenses/${exp.id}`)
+      );
+    });
+
+    return archive;
+  };
+
   const getStudentDueInfo = (studentId: string) => {
     const student = students.find((s) => s.id === studentId);
     const payments = feePayments.filter((p) => p.studentId === studentId);
+    const archivedPayments = monthlyArchives.flatMap((a) =>
+      (a.feePayments || []).filter((p) => p.studentId === studentId)
+    );
     const totalPaid = payments.reduce((acc, curr) => acc + curr.paidAmount, 0);
 
     if (!student) return { totalPaid, dueEstimate: 0, payments };
 
-    // Check if current month fee is paid
+    // Check if current month fee is paid (across active or archived records for this month)
     const currentYear = new Date().getFullYear();
-    const bengaliMonths = [
-      'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
-      'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
-    ];
     const currentMonth = bengaliMonths[new Date().getMonth()] || 'সেপ্টেম্বর';
 
-    const currentMonthPaid = payments.some(
+    const currentMonthPaid = [...payments, ...archivedPayments].some(
       (p) => p.month === currentMonth && p.year === currentYear && p.feeType === 'মাসিক টিউশন ফি'
     );
     const dueEstimate = currentMonthPaid ? 0 : (student.monthlyFee || 0);
@@ -1283,6 +1578,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       attendance,
       feePayments,
       expenses,
+      monthlyArchives,
       exams,
       routines,
       exportDate: new Date().toISOString(),
@@ -1297,17 +1593,29 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     zip.file('04_expenses_summary.csv', generateExpensesCsv());
     zip.file('05_exam_results_sheet.csv', generateExamsCsv());
 
-    // 3. Security Audit Logs CSV
+    // 3. Past Month Financial Archives CSV
+    const arcHeaders = ['মাস ও সাল', 'মোট আয়', 'মোট ব্যয়', 'নেট ব্যালেন্স', 'ক্লোজকারী শিক্ষক', 'ক্লোজ তারিখ'];
+    const arcRows = monthlyArchives.map((a) =>
+      [a.monthLabel, a.totalIncome, a.totalExpenses, a.netBalance, a.closedByTeacherName, a.closedAt]
+        .map(escapeCsvCell)
+        .join(',')
+    );
+    zip.file(
+      '06_monthly_archives_history.csv',
+      '\uFEFF' + [arcHeaders.map(escapeCsvCell).join(','), ...arcRows].join('\r\n')
+    );
+
+    // 4. Security Audit Logs CSV
     const auditHeaders = ['অ্যাকশন', 'বিবরণ', 'শিক্ষক', 'সময়'];
     const auditRows = auditLogs.map((log) =>
       [log.action, log.target, log.teacherName, log.timestamp].map(escapeCsvCell).join(',')
     );
     zip.file(
-      '06_security_audit_logs.csv',
+      '07_security_audit_logs.csv',
       '\uFEFF' + [auditHeaders.map(escapeCsvCell).join(','), ...auditRows].join('\r\n')
     );
 
-    // 4. Readme Note
+    // 5. Readme Note
     const readme = `========================================================================
 এডুকেশন কেয়ার কোচিং সেন্টার - সুরক্ষিত ডেটা ব্যাকআপ ও অডিট প্যাকেজ
 ঠিকানা: গুলিয়াখালী রোড, সীতাকুণ্ড, চট্টগ্রাম
@@ -1315,7 +1623,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 ডাউনলোড তারিখ: ${new Date().toLocaleString('bn-BD')}
 ========================================================================
 এই জিপ (ZIP) প্যাকেজে কোচিং সেন্টারের সকল ডেটাবেস, শিক্ষার্থী তালিকা, 
-আদায়কৃত ফি, খরচের খাতা, পরীক্ষার ফলাফল এবং সিকিউরিটি অডিট ট্রেইল সংরক্ষিত রয়েছে।
+আদায়কৃত ফি, খরচের খাতা, বিগত মাসের আর্কাইভ হিসাব, পরীক্ষার ফলাফল এবং অডিট ট্রেইল সংরক্ষিত রয়েছে।
 ফাইলগুলো সরাসরি মাইক্রোসফট এক্সেল (Excel), গুগল শিট বা ডেটাবেসে খোলা যাবে।
 `;
     zip.file('README_SECURITY_BACKUP.txt', readme);
@@ -1334,10 +1642,11 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       settings,
       students,
       batches,
-      teachers,
+      teachers: teachers.map((t) => ({ ...t, pin: undefined })),
       attendance,
       feePayments,
       expenses,
+      monthlyArchives,
       exams,
       routines,
       exportDate: new Date().toISOString(),
@@ -1361,10 +1670,11 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (data.settings) setSettings(data.settings);
         if (Array.isArray(data.students)) setStudents(data.students);
         if (Array.isArray(data.batches)) setBatches(data.batches);
-        if (Array.isArray(data.teachers)) setTeachers(data.teachers);
+        if (Array.isArray(data.teachers)) setTeachers(data.teachers.map(stripTeacherMeta));
         if (Array.isArray(data.attendance)) setAttendance(data.attendance);
         if (Array.isArray(data.feePayments)) setFeePayments(data.feePayments);
         if (Array.isArray(data.expenses)) setExpenses(data.expenses);
+        if (Array.isArray(data.monthlyArchives)) setMonthlyArchives(data.monthlyArchives);
         if (Array.isArray(data.exams)) setExams(data.exams);
         if (Array.isArray(data.routines)) setRoutines(data.routines);
         return true;
@@ -1377,8 +1687,23 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const seedDefaultTeachers = () => {
-    setTeachers(defaultStaffTeachers);
-    defaultStaffTeachers.forEach((t) => {
+    const missing = defaultStaffTeachers
+      .filter(
+        (preset) =>
+          !teachers.some(
+            (existing) =>
+              existing.id === preset.id ||
+              existing.name.trim() === preset.name.trim() ||
+              cleanPhoneNumber(existing.phone) === cleanPhoneNumber(preset.phone)
+          )
+      )
+      .map(stripTeacherMeta);
+
+    if (missing.length === 0) return;
+
+    const mergedList = [...teachers, ...missing];
+    setTeachers(mergedList);
+    missing.forEach((t) => {
       setDoc(doc(db, 'teachers', t.id), t).catch(() => {});
     });
   };
@@ -1422,9 +1747,11 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setDarkMode,
         isCloudSynced,
         currentTeacher,
+        lastLoginPhone,
         loginTeacher,
         loginWithPhoneAndPasskey,
         changeTeacherPasskey,
+        changeTeacherPhone,
         logoutTeacher,
         isScreenLocked,
         lockScreen,
@@ -1438,6 +1765,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         attendance,
         feePayments,
         expenses,
+        monthlyArchives,
         exams,
         addStudent,
         updateStudent,
@@ -1454,6 +1782,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         deleteFeePayment,
         addExpense,
         deleteExpense,
+        closeAndClearMonthAccounts,
         getStudentDueInfo,
         addExam,
         updateExamResults,

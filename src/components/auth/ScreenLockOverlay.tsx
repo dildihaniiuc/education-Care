@@ -18,7 +18,7 @@ export const ScreenLockOverlay: React.FC = () => {
 
     const success = unlockScreen(pin);
     if (!success) {
-      setErrorMsg('ভুল পিন কোড! ডিফল্ট পিন ১২৩৪ দিন।');
+      setErrorMsg('ভুল পাস কী / পিন কোড! আপনার সঠিক পাস কী দিন।');
       setPin('');
     } else {
       setErrorMsg('');
@@ -29,9 +29,8 @@ export const ScreenLockOverlay: React.FC = () => {
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 animate-in fade-in duration-300">
       <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-800 p-6 sm:p-8 text-center space-y-5">
-        {/* Animated Lock Shield Icon */}
+        {/* Lock Shield Icon */}
         <div className="relative mx-auto w-20 h-20">
-          <div className="absolute inset-0 rounded-3xl bg-emerald-500/20 animate-ping opacity-50" />
           <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-lg mx-auto">
             <Lock className="w-9 h-9" />
           </div>
@@ -60,9 +59,6 @@ export const ScreenLockOverlay: React.FC = () => {
               <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
                 {currentTeacher.name}
               </h4>
-              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 truncate font-semibold">
-                {currentTeacher.designation}
-              </p>
             </div>
           </div>
         )}
@@ -88,7 +84,7 @@ export const ScreenLockOverlay: React.FC = () => {
               onChange={(e) => setPin(e.target.value)}
               className="w-full px-4 py-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono tracking-widest text-center text-xl font-bold focus:outline-emerald-600 shadow-inner"
             />
-            <p className="text-[11px] text-slate-400 mt-1.5">ডিফল্ট নিরাপত্তা পিন: ১২৩৪</p>
+            <p className="text-[11px] text-slate-400 mt-1.5">আপনার বর্তমান পাস কী দিয়ে আনলক করুন</p>
           </div>
 
           <button

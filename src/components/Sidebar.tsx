@@ -10,15 +10,13 @@ import {
   UserCheck,
   Settings,
   X,
-  BookOpen,
-  MapPin,
   Moon,
   Sun,
-  Shield,
 } from 'lucide-react';
 import { useCoaching } from '../context/CoachingContext';
 import { toBn } from '../utils/bengaliUtils';
 import { TabType } from '../types';
+import { BrandLogo } from './common/BrandLogo';
 
 interface SidebarProps {
   currentTab: TabType;
@@ -36,7 +34,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { settings, students, batches, routines, darkMode, toggleDarkMode } = useCoaching();
 
-  // Close drawer on Escape key press
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isMobileOpen) {
@@ -47,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMobileOpen, setIsMobileOpen]);
 
-  const menuItems: { id: TabType; label: string; icon: React.ReactNode; badge?: string }[] = [
+  const menuItems: { id: TabType; label: string; icon: React.ReactNode; count?: string }[] = [
     {
       id: 'dashboard',
       label: 'ড্যাশবোর্ড',
@@ -55,30 +52,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'students',
-      label: 'শিক্ষার্থী তালিকা',
+      label: 'শিক্ষার্থী',
       icon: <Users className="w-5 h-5" />,
-      badge: students.length > 0 ? toBn(students.length) : undefined,
+      count: students.length > 0 ? toBn(students.length) : undefined,
     },
     {
       id: 'batches',
-      label: 'ব্যাচ ব্যবস্থাপনা',
+      label: 'ব্যাচ',
       icon: <Layers className="w-5 h-5" />,
-      badge: batches.length > 0 ? toBn(batches.length) : undefined,
+      count: batches.length > 0 ? toBn(batches.length) : undefined,
     },
     {
       id: 'routine',
-      label: 'ক্লাস রুটিন তৈরি',
+      label: 'ক্লাস রুটিন',
       icon: <Calendar className="w-5 h-5" />,
-      badge: routines && routines.length > 0 ? toBn(routines.length) : undefined,
+      count: routines && routines.length > 0 ? toBn(routines.length) : undefined,
     },
     {
       id: 'attendance',
-      label: 'উপস্থিতি (হাজিরা)',
+      label: 'হাজিরা',
       icon: <CalendarCheck className="w-5 h-5" />,
     },
     {
       id: 'accounts',
-      label: 'ফি ও আয়-ব্যয় খাতা',
+      label: 'ফি ও হিসাব',
       icon: <CreditCard className="w-5 h-5" />,
     },
     {
@@ -88,12 +85,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'teachers',
-      label: 'শিক্ষক ও স্টাফ',
+      label: 'শিক্ষক পরিষদ',
       icon: <UserCheck className="w-5 h-5" />,
     },
     {
       id: 'settings',
-      label: 'প্রতিষ্ঠান সেটিংস ও ব্যাকআপ',
+      label: 'সেটিংস ও ব্যাকআপ',
       icon: <Settings className="w-5 h-5" />,
     },
   ];
@@ -105,56 +102,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Backdrop for drawer */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-slate-950/70 z-50 backdrop-blur-xs transition-opacity cursor-pointer"
+          className="fixed inset-0 bg-slate-950/60 z-50 backdrop-blur-xs transition-opacity cursor-pointer"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
 
-      {/* Sidebar Drawer Container */}
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-50 w-72 sm:w-80 bg-slate-900 dark:bg-slate-950 text-slate-100 flex flex-col transition-transform duration-300 ease-in-out ${
-          isMobileOpen ? 'translate-x-0 shadow-2xl ring-1 ring-white/10' : '-translate-x-full'
-        } no-print border-r border-slate-800 dark:border-slate-900`}
+        className={`fixed top-0 left-0 bottom-0 z-50 w-72 sm:w-80 bg-[#0F3382] dark:bg-[#0A193D] text-white flex flex-col transition-transform duration-300 ease-in-out ${
+          isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+        } no-print`}
       >
-        {/* Institute Branding Header */}
-        <div className="p-5 border-b border-slate-800 dark:border-slate-900 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-950/40 shrink-0">
-              <BookOpen className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="font-bold text-base text-white leading-tight tracking-tight">
-                {settings.name.split(' ')[0] || 'এডুকেশন'} {settings.name.split(' ')[1] || 'কেয়ার'}
+        {/* Clean Logo Header */}
+        <div className="p-5 border-b border-white/10 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <BrandLogo variant="badge" className="w-14 h-14 shrink-0 border border-white/15" />
+            <div className="min-w-0">
+              <h1 className="font-bold text-base text-white leading-tight truncate">
+                {settings.name}
               </h1>
-              <p className="text-xs text-emerald-400 font-medium">অফিসিয়াল খাতা ম্যানেজমেন্ট</p>
-              <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5">
-                <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
-                <span className="truncate max-w-[130px]">গুলিয়াখালী, সীতাকুণ্ড</span>
-              </div>
+              <p className="text-[11px] text-blue-200 truncate mt-0.5">
+                {settings.address}, {settings.district}
+              </p>
             </div>
           </div>
           <button
             onClick={() => setIsMobileOpen(false)}
-            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 border border-transparent hover:border-slate-700 transition cursor-pointer"
-            title="মেনু বন্ধ করুন (Esc)"
+            className="p-2 text-blue-200 hover:text-white rounded-xl hover:bg-white/10 transition cursor-pointer shrink-0"
             aria-label="মেনু বন্ধ করুন"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Navigation Menu */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-            <span>অফিসিয়াল মডিউল</span>
-            <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-mono">
-              <Shield className="w-3 h-3" /> অফলাইন সুরক্ষিত
-            </span>
-          </div>
-
+        {/* Navigation Links */}
+        <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-1">
           {menuItems.map((item) => {
             const isActive = currentTab === item.id;
             return (
@@ -162,27 +145,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 key={item.id}
                 id={`sidebar-nav-${item.id}`}
                 onClick={() => handleSelect(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 text-left ${
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-150 text-left cursor-pointer ${
                   isActive
-                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-900/40 font-semibold'
-                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                    ? 'bg-white text-[#0F3382] font-bold shadow-sm'
+                    : 'text-blue-100 hover:bg-white/10 hover:text-white'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <span className={isActive ? 'text-white' : 'text-slate-400'}>
+                <div className="flex items-center gap-3 whitespace-nowrap">
+                  <span className={isActive ? 'text-[#0F3382]' : 'text-blue-200'}>
                     {item.icon}
                   </span>
                   <span>{item.label}</span>
                 </div>
-                {item.badge && (
+                {item.count && (
                   <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                      isActive
-                        ? 'bg-white/20 text-white'
-                        : 'bg-slate-800 text-slate-300 border border-slate-700'
+                    className={`text-xs font-mono tabular-nums ${
+                      isActive ? 'text-[#0F3382]' : 'text-blue-200/80'
                     }`}
                   >
-                    {item.badge}
+                    {item.count}
                   </span>
                 )}
               </button>
@@ -190,29 +171,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Dark Mode Quick Switch & Location Footer */}
-        <div className="p-4 border-t border-slate-800 dark:border-slate-900 bg-slate-950/60 space-y-2">
-          {/* Quick theme toggle */}
+        {/* Theme Switch Footer */}
+        <div className="p-4 border-t border-white/10">
           <button
             onClick={toggleDarkMode}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 text-xs font-medium text-slate-200 transition"
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-xs font-medium text-white transition cursor-pointer"
           >
             <span className="flex items-center gap-2">
-              {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-300" />}
-              {darkMode ? 'লাইট মোডে পরিবর্তন' : 'ডার্ক মোড সক্রিয়'}
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">
-              {darkMode ? 'ডার্ক' : 'লাইট'}
+              {darkMode ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-blue-200" />}
+              {darkMode ? 'লাইট মোড' : 'ডার্ক মোড'}
             </span>
           </button>
-
-          <div className="bg-slate-800/40 rounded-xl p-2.5 border border-slate-700/40 text-[11px] text-slate-400">
-            <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              ডিজিটাল রেজিস্টার সিস্টেম
-            </div>
-            <p className="mt-0.5 truncate">{settings.address}, {settings.district}</p>
-          </div>
         </div>
       </aside>
     </>

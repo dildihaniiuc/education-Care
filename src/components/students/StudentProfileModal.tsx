@@ -79,9 +79,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   শ্রেণি: {student.classGrade}
                 </span>
               </div>
-              <p className="text-xs text-slate-300">
-                {student.nameEn || 'নামের ইংরেজি রূপ নেই'} • বর্তমান প্রতিষ্ঠান: {student.schoolCollege}
-              </p>
+              {(student.nameEn || student.schoolCollege) && (
+                <p className="text-xs text-slate-300">
+                  {[student.nameEn, student.schoolCollege ? `প্রতিষ্ঠান: ${student.schoolCollege}` : '']
+                    .filter(Boolean)
+                    .join(' • ')}
+                </p>
+              )}
               <p className="text-xs text-emerald-400 mt-1 font-medium">
                 ব্যাচ: {batch?.name || 'সাধারণ'} ({batch?.timeSlot})
               </p>
@@ -372,13 +376,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         </td>
                         <td className="px-3 py-2.5 text-slate-700 font-medium">
                           <span className="inline-flex items-center gap-1 text-[11px] bg-slate-100 px-2 py-0.5 rounded-md text-slate-800 font-semibold">
-                            👤 {item!.result.updatedByTeacherName || item!.exam.createdByTeacherName || 'দিল দিহান'}
+                            <User className="w-3 h-3 text-slate-500" />
+                            {item!.result.updatedByTeacherName || item!.exam.createdByTeacherName || 'দিল দিহান'}
                           </span>
                         </td>
                         <td className="px-3 py-2.5 text-center">
                           {item!.result.scriptPhotoUrl ? (
-                            <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                              সংযুক্ত ✓
+                            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              <CheckCircle2 className="w-3 h-3" />
+                              সংযুক্ত
                             </span>
                           ) : (
                             <span className="text-slate-400 text-[10px]">-</span>

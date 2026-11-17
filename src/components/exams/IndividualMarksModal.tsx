@@ -368,7 +368,7 @@ export const IndividualMarksModal: React.FC<IndividualMarksModalProps> = ({
                   তথ্যের সত্যতা ও শিক্ষক অডিট ডিটেকশন:
                 </span>
                 <span className="font-bold text-slate-800 dark:text-slate-200">
-                  এন্ট্রি করছেন: {currentTeacher?.name || 'দিল দিহান'} ({currentTeacher?.designation || currentTeacher?.role || 'শিক্ষক'})
+                  এন্ট্রি করছেন: {currentTeacher?.name || 'দিল দিহান'}
                 </span>
               </div>
             </div>

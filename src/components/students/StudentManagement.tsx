@@ -11,6 +11,7 @@ import {
   Phone,
   UserPlus,
   Award,
+  User,
 } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
 import { Student } from '../../types';
@@ -219,7 +220,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                           {std.schoolCollege}
                         </div>
                         <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
-                          <span>👤 এন্ট্রি: {std.addedByTeacherName || 'দিল দিহান'}</span>
+                          <User className="w-3 h-3" />
+                          <span>এন্ট্রি: {std.addedByTeacherName || 'দিল দিহান'}</span>
                         </div>
                       </td>
 

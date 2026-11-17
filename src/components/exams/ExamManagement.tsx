@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Award,
   Plus,
@@ -22,12 +22,15 @@ import {
   Users,
   Upload,
   ShieldCheck,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
 import { Exam, ClassGrade, Student } from '../../types';
 import { toBn, getGradeAndGPA, formatBengaliDate } from '../../utils/bengaliUtils';
 import { ALL_CLASS_GRADES, SHORTCUT_SUBJECTS } from '../../constants/academicData';
 import { IndividualMarksModal } from './IndividualMarksModal';
+import { downloadElementAsPdf } from '../../utils/pdfGenerator';
 
 type ExamViewMode = 'entry' | 'list' | 'merit';
 
@@ -51,6 +54,9 @@ export const ExamManagement: React.FC = () => {
     studentId: string;
   } | null>(null);
   const [printingTabulationExam, setPrintingTabulationExam] = useState<Exam | null>(null);
+  const marksheetRef = useRef<HTMLDivElement>(null);
+  const tabulationRef = useRef<HTMLDivElement>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   // Success toast state
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
@@ -704,12 +710,14 @@ export const ExamManagement: React.FC = () => {
                                     const tName = matchRes?.updatedByTeacherName || currentExam.createdByTeacherName;
                                     return (
                                       <div className="flex items-center gap-1.5 mt-0.5">
-                                        <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
-                                          👤 শিক্ষক: {tName || 'দিল দিহান'}
+                                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+                                          <User className="w-3 h-3" />
+                                          শিক্ষক: {tName || 'দিল দিহান'}
                                         </span>
                                         {matchRes?.scriptPhotoUrl && (
-                                          <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950 px-1 py-0.2 rounded border border-amber-200">
-                                            খাতা সংযুক্ত ✓
+                                          <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 rounded border border-amber-200">
+                                            <CheckCircle className="w-2.5 h-2.5" />
+                                            খাতা সংযুক্ত
                                           </span>
                                         )}
                                       </div>
@@ -1442,19 +1450,40 @@ export const ExamManagement: React.FC = () => {
           PRINTABLE INDIVIDUAL MARKSHEET MODAL
       ======================================================== */}
       {printingResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200 max-h-[92vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto print-modal-wrapper">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200 max-h-[92vh] flex flex-col print-modal-container">
             <div className="no-print bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
               <span className="font-semibold text-sm">প্রোগ্রেস রিপোর্ট / মার্কশিট প্রিভিউ</span>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
+                  disabled={isDownloadingPdf}
+                  onClick={async () => {
+                    if (!marksheetRef.current) return;
+                    setIsDownloadingPdf(true);
+                    const std = students.find((s) => s.id === printingResult.studentId);
+                    await downloadElementAsPdf(marksheetRef.current, {
+                      filename: `marksheet_roll_${std?.roll || 'student'}_${printingResult.exam.subject}.pdf`,
+                      orientation: 'portrait',
+                      marginMm: 12,
+                    });
+                    setIsDownloadingPdf(false);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold cursor-pointer disabled:opacity-60"
+                >
+                  {isDownloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {isDownloadingPdf ? 'তৈরি হচ্ছে...' : 'PDF ডাউনলোড'}
+                </button>
+                <button
+                  type="button"
                   onClick={() => window.print()}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
-                  প্রিন্ট মার্কশিট
+                  প্রিন্ট
                 </button>
                 <button
+                  type="button"
                   onClick={() => setPrintingResult(null)}
                   className="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer"
                 >
@@ -1464,7 +1493,8 @@ export const ExamManagement: React.FC = () => {
             </div>
 
             {/* Printable Content */}
-            <div className="p-6 sm:p-8 bg-white printable-card text-slate-800 space-y-4 overflow-y-auto">
+            <div className="overflow-y-auto bg-white">
+              <div ref={marksheetRef} className="p-6 sm:p-8 bg-white printable-card text-slate-800 space-y-4">
               {(() => {
                 const std = students.find((s) => s.id === printingResult.studentId);
                 const marks = Number(marksMap[printingResult.studentId] ?? 0);
@@ -1553,6 +1583,7 @@ export const ExamManagement: React.FC = () => {
                   </>
                 );
               })()}
+              </div>
             </div>
           </div>
         </div>
@@ -1562,12 +1593,31 @@ export const ExamManagement: React.FC = () => {
           PRINTABLE TABULATION SHEET MODAL (Full Batch / Class)
       ======================================================== */}
       {printingTabulationExam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-200 max-h-[92vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto print-modal-wrapper">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-200 max-h-[92vh] flex flex-col print-modal-container">
             <div className="no-print bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
               <span className="font-semibold text-sm">ট্যাবুলেশন শিট প্রিভিউ</span>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
+                  disabled={isDownloadingPdf}
+                  onClick={async () => {
+                    if (!tabulationRef.current) return;
+                    setIsDownloadingPdf(true);
+                    await downloadElementAsPdf(tabulationRef.current, {
+                      filename: `tabulation_sheet_${printingTabulationExam.classGrade}_${printingTabulationExam.subject}.pdf`,
+                      orientation: 'portrait',
+                      marginMm: 10,
+                    });
+                    setIsDownloadingPdf(false);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold cursor-pointer disabled:opacity-60"
+                >
+                  {isDownloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {isDownloadingPdf ? 'তৈরি হচ্ছে...' : 'PDF ডাউনলোড'}
+                </button>
+                <button
+                  type="button"
                   onClick={() => window.print()}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold cursor-pointer"
                 >
@@ -1575,6 +1625,7 @@ export const ExamManagement: React.FC = () => {
                   প্রিন্ট শিট
                 </button>
                 <button
+                  type="button"
                   onClick={() => setPrintingTabulationExam(null)}
                   className="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer"
                 >
@@ -1584,7 +1635,8 @@ export const ExamManagement: React.FC = () => {
             </div>
 
             {/* Tabulation Content */}
-            <div className="p-6 sm:p-8 bg-white printable-card text-slate-800 space-y-4 overflow-y-auto">
+            <div className="overflow-y-auto bg-white">
+              <div ref={tabulationRef} className="p-6 sm:p-8 bg-white printable-card text-slate-800 space-y-4">
               <div className="text-center border-b-2 border-slate-800 pb-3">
                 <h2 className="text-xl font-black text-slate-900">{settings.name}</h2>
                 <p className="text-xs text-slate-600">
@@ -1656,6 +1708,7 @@ export const ExamManagement: React.FC = () => {
                   <div className="w-36 border-b border-slate-400 mb-1" />
                   <p className="font-bold text-slate-800">সংশ্লিষ্ট শিক্ষকের স্বাক্ষর</p>
                 </div>
+              </div>
               </div>
             </div>
           </div>

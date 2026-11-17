@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CreditCard, Check, AlertCircle, Printer } from 'lucide-react';
+import { X, CreditCard, Check, AlertCircle, Lock } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
 import { Student, FeePayment, FeeType, PaymentMethod } from '../../types';
 import { toBn, bengaliMonths, formatTaka } from '../../utils/bengaliUtils';
@@ -33,28 +33,21 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
   preSelectedStudent,
   onPaymentSuccess,
 }) => {
-  const { students, batches, addFeePayment, currentTeacher, teachers } = useCoaching();
+  const { students, batches, addFeePayment, currentTeacher } = useCoaching();
 
   const autoDetectedTeacher = currentTeacher?.name
     ? `${currentTeacher.name} (শিক্ষক)`
-    : 'দিল দিহান (শিক্ষক)';
+    : 'অজ্ঞাত শিক্ষক';
 
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [feeType, setFeeType] = useState<FeeType>('মাসিক টিউশন ফি');
   const [month, setMonth] = useState('সেপ্টেম্বর');
-  const [year, setYear] = useState(2026);
+  const [year] = useState(2026);
   const [amount, setAmount] = useState(1500);
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('ক্যাশ (নগদ)');
-  const [collectedBy, setCollectedBy] = useState(autoDetectedTeacher);
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (autoDetectedTeacher) {
-      setCollectedBy(autoDetectedTeacher);
-    }
-  }, [currentTeacher, isOpen]);
 
   useEffect(() => {
     if (preSelectedStudent) {
@@ -83,6 +76,10 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentTeacher) {
+      setError('ফি আদায় করতে অনুগ্রহ করে শিক্ষক হিসেবে লগইন করুন।');
+      return;
+    }
     if (!selectedStudentId) {
       setError('অনুগ্রহ করে শিক্ষার্থী নির্বাচন করুন।');
       return;
@@ -92,10 +89,7 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
       return;
     }
 
-    const matchedTeacher = teachers.find(
-      (t) => `${t.name} (শিক্ষক)` === collectedBy || t.name === collectedBy
-    );
-
+    // Collector identity is strictly enforced on context level from currentTeacher
     const newPayment = addFeePayment({
       studentId: selectedStudentId,
       month,
@@ -107,9 +101,9 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
       dueAmount: 0,
       paymentMethod,
       date: new Date().toISOString().slice(0, 10),
-      collectedBy: collectedBy || autoDetectedTeacher,
-      collectedByTeacherId: matchedTeacher?.id || currentTeacher?.id || 'tch-dildihan',
-      collectedByTeacherName: matchedTeacher?.name || currentTeacher?.name || 'দিল দিহান',
+      collectedBy: autoDetectedTeacher,
+      collectedByTeacherId: currentTeacher.id,
+      collectedByTeacherName: currentTeacher.name,
       timestamp: new Date().toISOString(),
       note,
     });
@@ -122,7 +116,7 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto no-print">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-800">
         {/* Header */}
         <div className="bg-gradient-to-r from-teal-700 to-emerald-700 px-6 py-4 text-white flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -136,46 +130,49 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition"
+            className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {error && (
-          <div className="bg-rose-50 border-b border-rose-200 px-6 py-2.5 flex items-center gap-2 text-rose-700 text-xs font-semibold">
+          <div className="bg-rose-50 dark:bg-rose-950/60 border-b border-rose-200 dark:border-rose-800 px-6 py-2.5 flex items-center gap-2 text-rose-700 dark:text-rose-200 text-xs font-semibold">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Automatic Teacher Detection Notification */}
-          <div className="bg-emerald-50 border border-emerald-200/90 rounded-xl p-3 flex items-center justify-between text-xs shadow-xs">
+          {/* Strictly Locked Automatic Teacher Detection Banner */}
+          <div className="bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/90 dark:border-emerald-800/80 rounded-xl p-3 flex items-center justify-between text-xs shadow-xs">
             <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
-              </span>
+              <span className="inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600 shrink-0"></span>
               <div>
-                <span className="text-slate-600">ফি আদায়কারী শিক্ষক:</span>
-                <span className="font-bold text-emerald-950 ml-1.5">{collectedBy}</span>
+                <span className="text-slate-600 dark:text-slate-300">স্বয়ংক্রিয় আদায়কারী:</span>
+                <span className="font-bold text-emerald-950 dark:text-emerald-200 ml-1.5">
+                  {autoDetectedTeacher}
+                </span>
+                <p className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                  আপনার লগইন আইডি হিসেবে স্থায়ীভাবে সংরক্ষিত হবে (সকল শিক্ষক দেখতে পারবেন)
+                </p>
               </div>
             </div>
-            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
-              স্বয়ংক্রিয় ডিটেকশন
+            <span className="bg-emerald-100 dark:bg-emerald-900/70 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 shrink-0 border border-emerald-200 dark:border-emerald-700">
+              <Lock className="w-3 h-3" />
+              সুরক্ষিত
             </span>
           </div>
 
           {/* Select Student */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               শিক্ষার্থী নির্বাচন করুন *
             </label>
             <select
               value={selectedStudentId}
               onChange={(e) => handleStudentSelect(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600 font-medium"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600 font-medium"
             >
               {students.map((std) => (
                 <option key={std.id} value={std.id}>
@@ -187,16 +184,16 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
 
           {/* Student quick detail badge */}
           {currentStudent && (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs flex items-center justify-between">
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs flex items-center justify-between">
               <div>
-                <p className="font-bold text-slate-800">{currentStudent.nameBn}</p>
-                <p className="text-slate-500">
+                <p className="font-bold text-slate-800 dark:text-slate-100">{currentStudent.nameBn}</p>
+                <p className="text-slate-500 dark:text-slate-400">
                   {currentStudent.schoolCollege} • ব্যাচ: {currentBatch?.name}
                 </p>
               </div>
               <div className="text-right">
-                <span className="text-[11px] text-slate-500">মাসিক নির্ধারিত ফি:</span>
-                <p className="font-bold text-teal-800 text-sm">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">মাসিক নির্ধারিত ফি:</span>
+                <p className="font-bold text-teal-800 dark:text-teal-400 text-sm">
                   {formatTaka(currentStudent.monthlyFee)}
                 </p>
               </div>
@@ -206,13 +203,13 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
           {/* Fee Type & Month */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 ফি-এর ধরন
               </label>
               <select
                 value={feeType}
                 onChange={(e) => setFeeType(e.target.value as FeeType)}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600"
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600"
               >
                 {feeTypes.map((ft) => (
                   <option key={ft} value={ft}>
@@ -223,13 +220,13 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 মাসের নাম
               </label>
               <select
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600"
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600"
               >
                 {bengaliMonths.map((m) => (
                   <option key={m} value={m}>
@@ -243,7 +240,7 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
           {/* Amount and Discount */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 ফি-এর পরিমাণ (টাকা) *
               </label>
               <input
@@ -252,12 +249,12 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
                 required
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value))}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600 font-bold text-slate-800"
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600 font-bold"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 বিশেষ ছাড় / ডিসকাউন্ট (টাকা)
               </label>
               <input
@@ -265,58 +262,32 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
                 min="0"
                 value={discount}
                 onChange={(e) => setDiscount(Number(e.target.value))}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600 font-medium"
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600 font-medium"
               />
             </div>
           </div>
 
-          {/* Payment Method & Collector */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                পরিশোধের মাধ্যম
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600"
-              >
-                {paymentMethods.map((pm) => (
-                  <option key={pm} value={pm}>
-                    {pm}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                আদায়কারী শিক্ষক *
-              </label>
-              <select
-                value={collectedBy}
-                onChange={(e) => setCollectedBy(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600 font-medium text-slate-800 bg-white"
-              >
-                {teachers.map((t) => {
-                  const label = `${t.name} (শিক্ষক)`;
-                  const isCurrent = currentTeacher?.id === t.id;
-                  return (
-                    <option key={t.id} value={label}>
-                      {label} {isCurrent ? '★ (লগইনকৃত)' : ''}
-                    </option>
-                  );
-                })}
-                {!teachers.some((t) => `${t.name} (শিক্ষক)` === collectedBy) && (
-                  <option value={collectedBy}>{collectedBy}</option>
-                )}
-              </select>
-            </div>
+          {/* Payment Method (No Collector Selection Option!) */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              পরিশোধের মাধ্যম
+            </label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600"
+            >
+              {paymentMethods.map((pm) => (
+                <option key={pm} value={pm}>
+                  {pm}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               মন্তব্য / ট্রানজেকশন আইডি (ঐচ্ছিক)
             </label>
             <input
@@ -324,14 +295,14 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
               placeholder="যেমন: বিকাশ ট্রানজেকশন আইডি বা বিশেষ নোট"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600"
             />
           </div>
 
           {/* Net Amount Highlight */}
-          <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 flex items-center justify-between">
-            <span className="text-xs font-semibold text-teal-900">মোট আদায়যোগ্য টাকা:</span>
-            <span className="text-lg font-black text-teal-800">{formatTaka(netPayable)}</span>
+          <div className="bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 rounded-xl p-3 flex items-center justify-between">
+            <span className="text-xs font-semibold text-teal-900 dark:text-teal-200">মোট আদায়যোগ্য টাকা:</span>
+            <span className="text-lg font-black text-teal-800 dark:text-teal-300">{formatTaka(netPayable)}</span>
           </div>
 
           {/* Action buttons */}
@@ -339,13 +310,13 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition font-medium"
+              className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition font-medium cursor-pointer"
             >
               বাতিল
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold rounded-xl shadow-md transition"
+              className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold rounded-xl shadow-md transition cursor-pointer"
             >
               <Check className="w-4 h-4" />
               টাকা গ্রহণ ও রসিদ তৈরি করুন

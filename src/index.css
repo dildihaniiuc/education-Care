@@ -20,19 +20,65 @@
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
   .no-print {
     display: none !important;
   }
   .print-only {
     display: block !important;
   }
-  body {
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
     background-color: white !important;
     color: black !important;
+  }
+  body:has(.print-modal-wrapper) .app-main-shell {
+    display: none !important;
+  }
+  body:has(.print-modal-wrapper) .h-screen {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  .print-modal-wrapper {
+    position: static !important;
+    inset: auto !important;
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  .print-modal-container {
+    max-width: 100% !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
   }
   .printable-card {
     box-shadow: none !important;
     border: 1px solid #cbd5e1 !important;
+  }
+  .single-page-receipt {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
 

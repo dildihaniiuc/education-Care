@@ -14,10 +14,16 @@ import {
   FileSpreadsheet,
   Archive,
   KeyRound,
+  Phone,
+  ExternalLink,
+  Copy,
+  Check,
+  Cloud,
 } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
 import { InstituteSettings } from '../../types';
 import { ChangePasskeyModal } from '../auth/ChangePasskeyModal';
+import firebaseConfig from '../../../firebase-applet-config.json';
 
 export const SettingsManagement: React.FC = () => {
   const {
@@ -40,7 +46,22 @@ export const SettingsManagement: React.FC = () => {
   const [formData, setFormData] = useState<InstituteSettings>(settings);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [clearSuccess, setClearSuccess] = useState(false);
+  const [restoreFeedback, setRestoreFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isChangePasskeyOpen, setIsChangePasskeyOpen] = useState(false);
+  const [passkeyModalTab, setPasskeyModalTab] = useState<'passkey' | 'phone'>('passkey');
+  const [copiedConsoleUrl, setCopiedConsoleUrl] = useState(false);
+
+  const firestoreConsoleUrl = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/firestore/databases/${firebaseConfig.firestoreDatabaseId}/data`;
+
+  const handleCopyConsoleUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(firestoreConsoleUrl);
+      setCopiedConsoleUrl(true);
+      setTimeout(() => setCopiedConsoleUrl(false), 2500);
+    } catch {
+      // Clipboard fallback ignored cleanly
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,13 +80,14 @@ export const SettingsManagement: React.FC = () => {
           const content = e.target?.result as string;
           const success = importDatabase(content);
           if (success) {
-            alert('ব্যাকআপ ফাইল সফলভাবে রিস্টোর হয়েছে!');
+            setRestoreFeedback({ type: 'success', message: 'ব্যাকআপ ফাইল সফলভাবে রিস্টোর হয়েছে!' });
           } else {
-            alert('ত্রুটি: ব্যাকআপ ফাইলের ফরম্যাট সঠিক নয়।');
+            setRestoreFeedback({ type: 'error', message: 'ত্রুটি: ব্যাকআপ ফাইলের ফরম্যাট সঠিক নয়।' });
           }
         } catch {
-          alert('ফাইল পড়তে ত্রুটি হয়েছে।');
+          setRestoreFeedback({ type: 'error', message: 'ফাইল পড়তে ত্রুটি হয়েছে।' });
         }
+        setTimeout(() => setRestoreFeedback(null), 4000);
       };
     }
   };
@@ -117,6 +139,23 @@ export const SettingsManagement: React.FC = () => {
         <div className="bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 rounded-xl px-4 py-3 text-xs font-semibold flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           সকল ডেটা সম্পূর্ণ খালি করা হয়েছে। খাতা নতুনভাবে শুরু করার জন্য প্রস্তুত!
+        </div>
+      )}
+
+      {restoreFeedback && (
+        <div
+          className={`rounded-xl px-4 py-3 text-xs font-semibold flex items-center gap-2 border ${
+            restoreFeedback.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+              : 'bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+          }`}
+        >
+          {restoreFeedback.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+          )}
+          {restoreFeedback.message}
         </div>
       )}
 
@@ -421,31 +460,112 @@ export const SettingsManagement: React.FC = () => {
             </div>
           </div>
 
-          {/* Teacher Passkey & Security Settings */}
+          {/* Teacher Passkey & Phone Number Security Settings */}
           {currentTeacher && (
             <div className="bg-white dark:bg-slate-900 border border-blue-200/80 dark:border-blue-900/60 rounded-2xl p-5 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
                   <KeyRound className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  ব্যক্তিগত পাস কী পরিবর্তন
+                  পাস কী ও মোবাইল নম্বর পরিবর্তন
                 </h4>
                 <span className="text-[10px] bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-bold">
                   {currentTeacher.name}
                 </span>
               </div>
+
+              <div className="bg-slate-50 dark:bg-slate-800/70 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-[11px]">
+                <span className="text-slate-500 dark:text-slate-400">বর্তমান লগইন নম্বর:</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                  {currentTeacher.phone}
+                </span>
+              </div>
+
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                আপনার অ্যাকাউন্টের নিরাপত্তা নিশ্চিত করতে নিয়মিত পাস কী পরিবর্তন করুন। পরিবর্তিত পাস কী সরাসরি ক্লাউড ডাটাবেসে সেভ হবে।
+                আপনার অ্যাকাউন্টের পাস কী অথবা লগইন করার মোবাইল নম্বর এখান থেকে পরিবর্তন করুন। পরিবর্তন সাথে সাথেই ক্লাউড ডেটাবেসে সেভ হবে।
               </p>
-              <button
-                type="button"
-                onClick={() => setIsChangePasskeyOpen(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer shadow-2xs"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                আমার পাস কী পরিবর্তন করুন
-              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPasskeyModalTab('passkey');
+                    setIsChangePasskeyOpen(true);
+                  }}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer shadow-2xs"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  পাস কী বদলান
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPasskeyModalTab('phone');
+                    setIsChangePasskeyOpen(true);
+                  }}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition cursor-pointer shadow-2xs"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  ফোন বদলান
+                </button>
+              </div>
             </div>
           )}
+
+          {/* Cloud Database (Firebase Firestore) Access Card */}
+          <div className="bg-white dark:bg-slate-900 border border-indigo-200/80 dark:border-indigo-900/60 rounded-2xl p-5 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-1.5">
+                <Cloud className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                ক্লাউড ডেটাবেস (Firebase Firestore) অ্যাক্সেস
+              </h4>
+              <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold border border-emerald-200 dark:border-emerald-800">
+                লাইভ সংযুক্ত
+              </span>
+            </div>
+
+            <div className="space-y-1.5 text-[11px] bg-slate-50 dark:bg-slate-800/70 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-500 dark:text-slate-400">প্রজেক্ট আইডি:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200 select-all">
+                  {firebaseConfig.projectId}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-500 dark:text-slate-400 shrink-0">ডেটাবেস আইডি:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all" title={firebaseConfig.firestoreDatabaseId}>
+                  {firebaseConfig.firestoreDatabaseId}
+                </span>
+              </div>
+              <div className="pt-1 border-t border-slate-200/80 dark:border-slate-700 text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                <strong>সংরক্ষিত কালেকশন:</strong> students, exams, teachers, batches, attendance, feePayments, expenses, monthlyArchives, routines, auditLogs, settings
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              সকল তথ্য রিয়েল-টাইমে Firebase Firestore ক্লাউডে জমা থাকে। সরাসরি ডেটাবেস টেবিল দেখতে নিচের বাটনে ক্লিক করে আপনার Google অ্যাকাউন্ট দিয়ে Firebase Console-এ প্রবেশ করুন।
+            </p>
+
+            <div className="flex items-center gap-2">
+              <a
+                href={firestoreConsoleUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shadow-2xs"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Firebase Console খুলুন
+              </a>
+              <button
+                type="button"
+                onClick={handleCopyConsoleUrl}
+                title="ডেটাবেস লিংক কপি করুন"
+                className="flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+              >
+                {copiedConsoleUrl ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedConsoleUrl ? 'কপি হয়েছে' : 'লিংক কপি'}</span>
+              </button>
+            </div>
+          </div>
 
           {/* Blank Slate Reset (Clear Data) */}
           <div className="bg-white dark:bg-slate-900 border border-rose-200/80 dark:border-rose-900/60 rounded-2xl p-5 shadow-xs space-y-3">
@@ -474,10 +594,11 @@ export const SettingsManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Change Passkey Modal */}
+      {/* Change Passkey & Phone Modal */}
       <ChangePasskeyModal
         isOpen={isChangePasskeyOpen}
         onClose={() => setIsChangePasskeyOpen(false)}
+        defaultTab={passkeyModalTab}
       />
     </div>
   );

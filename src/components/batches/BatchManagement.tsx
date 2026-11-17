@@ -12,6 +12,8 @@ import {
   X,
   BookOpen,
   Filter,
+  Check,
+  Plus as PlusIcon,
 } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
 import { Batch, ClassGrade } from '../../types';
@@ -32,6 +34,7 @@ export const BatchManagement: React.FC = () => {
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
   const [viewingBatchStudents, setViewingBatchStudents] = useState<Batch | null>(null);
   const [filterClass, setFilterClass] = useState<string>('সকল');
+  const [batchWarning, setBatchWarning] = useState<string>('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -119,14 +122,8 @@ export const BatchManagement: React.FC = () => {
       if (config) {
         addTeacher({
           name: config.name,
-          designation: config.designation,
-          subjects: config.subjects,
           phone: config.phone,
-          qualification: config.qualification,
-          joiningDate: new Date().toISOString().slice(0, 10),
-          salary: 20000,
         });
-        // We set teacherId once created, or will be assigned to latest
         setTimeout(() => {
           const newlyAdded = teachers.find((t) => t.name === teacherName);
           if (newlyAdded) {
@@ -152,11 +149,10 @@ export const BatchManagement: React.FC = () => {
   const handleDelete = (id: string, name: string) => {
     const enrolled = students.filter((s) => s.batchId === id).length;
     if (enrolled > 0) {
-      alert(
-        `এই ব্যাচে বর্তমানে ${toBn(
-          enrolled
-        )} জন শিক্ষার্থী ভর্তি আছে। আগে তাদের অন্য ব্যাচে স্থানান্তর করুন।`
+      setBatchWarning(
+        `এই ব্যাচে বর্তমানে ${toBn(enrolled)} জন শিক্ষার্থী ভর্তি আছে। আগে তাদের অন্য ব্যাচে স্থানান্তর করুন।`
       );
+      setTimeout(() => setBatchWarning(''), 5000);
       return;
     }
     if (window.confirm(`আপনি কি "${name}" ব্যাচটি মুছে ফেলতে চান?`)) {
@@ -194,6 +190,15 @@ export const BatchManagement: React.FC = () => {
           নতুন ব্যাচ তৈরি করুন
         </button>
       </div>
+
+      {batchWarning && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 text-xs font-semibold flex items-center justify-between">
+          <span>{batchWarning}</span>
+          <button type="button" onClick={() => setBatchWarning('')} className="p-1 text-amber-600 hover:text-amber-900">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Class Filter Bar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 shadow-xs">
@@ -520,13 +525,14 @@ export const BatchManagement: React.FC = () => {
                           type="button"
                           key={sub}
                           onClick={() => handleToggleSubject(sub)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition inline-flex items-center gap-1 ${
                             isSelected
                               ? 'bg-teal-600 text-white shadow-xs font-bold'
                               : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-teal-50 dark:hover:bg-slate-700'
                           }`}
                         >
-                          {isSelected ? '✓ ' : '+ '}{sub}
+                          {isSelected ? <Check className="w-3 h-3" /> : <PlusIcon className="w-3 h-3" />}
+                          <span>{sub}</span>
                         </button>
                       );
                     })}
@@ -563,7 +569,7 @@ export const BatchManagement: React.FC = () => {
                           }`}
                         >
                           <span>{st.name}</span>
-                          {isSelected && <span className="text-white text-[10px]">✓</span>}
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
                         </button>
                       );
                     })}
@@ -579,7 +585,7 @@ export const BatchManagement: React.FC = () => {
                   <option value="">-- শিক্ষক বেছে নিন --</option>
                   {teachers.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} ({t.designation || 'শিক্ষক'})
+                      {t.name}
                     </option>
                   ))}
                 </select>

@@ -61,15 +61,15 @@ export type TeacherRole = 'শিক্ষক' | 'সিনিয়র শিক�
 export interface Teacher {
   id: string;
   name: string;
-  designation: string;
-  subjects: string[];
+  designation?: string;
+  subjects?: string[];
   phone: string;
   email?: string;
-  qualification: string;
-  joiningDate: string;
-  salary: number;
+  qualification?: string;
+  joiningDate?: string;
+  salary?: number;
   bio?: string;
-  pin?: string; // 4-digit PIN for teacher login
+  pin?: string; // Passkey for teacher login
   role?: TeacherRole;
   avatarUrl?: string;
 }
@@ -138,6 +138,21 @@ export interface Expense {
   recordedByTeacherId?: string;
   recordedByTeacherName?: string;
   createdAt?: string;
+}
+
+export interface MonthlyArchive {
+  id: string;
+  month: string;
+  year: number;
+  monthLabel: string;
+  totalIncome: number;
+  totalExpenses: number;
+  netBalance: number;
+  feePayments: FeePayment[];
+  expenses: Expense[];
+  closedAt: string;
+  closedByTeacherId: string;
+  closedByTeacherName: string;
 }
 
 export interface ExamResult {
