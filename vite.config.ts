@@ -49,6 +49,7 @@ export default defineConfig(() => {
       versionManifestPlugin(buildVersion),
       VitePWA({
         registerType: 'prompt',
+        injectRegister: false,
         manifest: {
           id: '/',
           name: 'Education Care Coaching Center',
@@ -84,19 +85,28 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          clientsClaim: true,
           cleanupOutdatedCaches: true,
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}'],
-          globIgnores: ['**/version.json'],
-          navigateFallback: '/index.html',
-          navigateFallbackDenylist: [
-            /^\/api\//,
-            /^\/__\//,
-            /^\/version\.json$/,
-            /^\/sw\.js$/,
-            /^\/workbox-.*\.js$/,
-          ],
+          globIgnores: ['**/version.json', '**/pwa-*.png'],
+          navigateFallback: undefined,
           runtimeCaching: [
+            // Always try network first for HTML navigation so reloads/updates never get stuck on stale HTML
+            {
+              urlPattern: ({ request }) => request.mode === 'navigate',
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'html-navigation-cache',
+                networkTimeoutSeconds: 3,
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+                matchOptions: {
+                  ignoreSearch: true,
+                },
+              },
+            },
             // Never cache build version probe
             {
               urlPattern: /\/version\.json(\?.*)?$/i,
@@ -138,11 +148,32 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
-          type: 'module',
+          enabled: false,
         },
       }),
     ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('firebase')) return 'vendor-firebase';
+              if (
+                id.includes('jspdf') ||
+                id.includes('html-to-image') ||
+                id.includes('html2canvas')
+              ) {
+                return 'vendor-pdf';
+              }
+              if (id.includes('react-dom') || id.includes('/react/')) return 'vendor-react';
+              if (id.includes('lucide-react') || id.includes('motion') || id.includes('jszip')) {
+                return 'vendor-ui';
+              }
+            }
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

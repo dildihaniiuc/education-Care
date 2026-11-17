@@ -78,7 +78,7 @@ interface CoachingContextType {
   // Batch CRUD
   addBatch: (batch: Omit<Batch, 'id'>) => void;
   updateBatch: (id: string, batch: Partial<Batch>) => void;
-  deleteBatch: (id: string) => void;
+  deleteBatch: (id: string, transferToBatchId?: string) => void;
 
   // Teacher CRUD
   addTeacher: (teacher: Omit<Teacher, 'id'>) => void;
@@ -748,7 +748,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           collection(db, 'batches'),
           (snapshot) => {
             if (!snapshot.empty || !snapshot.metadata.fromCache) {
-              const list = snapshot.docs.map((d) => d.data() as Batch);
+              const list = snapshot.docs.map((d) => ({ ...(d.data() as Batch), id: d.id }));
               setBatches(list);
               setIsCloudSynced(true);
             }
@@ -1035,15 +1035,45 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
-  const deleteBatch = (id: string) => {
+  const deleteBatch = (id: string, transferToBatchId?: string) => {
     const b = batches.find((item) => item.id === id);
-    setBatches((prev) => prev.filter((b) => b.id !== id));
-    addAuditLog('ব্যাচ মুছে ফেলা', `${b?.name || 'ব্যাচ'} মুছে ফেলা হয়েছে`, 'batch');
+    const affectedStudents = students.filter((s) => s.batchId === id);
+    const nextBatchId = transferToBatchId || '';
+    const targetBatch = transferToBatchId
+      ? batches.find((item) => item.id === transferToBatchId)
+      : undefined;
 
-    // Cloud Firestore Sync
-    deleteDoc(doc(db, 'batches', id)).catch((e) =>
-      handleFirestoreError(e, OperationType.DELETE, `batches/${id}`)
+    setBatches((prev) => prev.filter((item) => item.id !== id));
+
+    if (affectedStudents.length > 0) {
+      setStudents((prev) =>
+        prev.map((s) => (s.batchId === id ? { ...s, batchId: nextBatchId } : s))
+      );
+    }
+
+    addAuditLog(
+      'ব্যাচ মুছে ফেলা',
+      affectedStudents.length > 0 && targetBatch
+        ? `${b?.name || 'ব্যাচ'} মুছে ফেলা হয়েছে (${toBn(affectedStudents.length)} জন শিক্ষার্থী "${targetBatch.name}" ব্যাচে স্থানান্তরিত)`
+        : `${b?.name || 'ব্যাচ'} মুছে ফেলা হয়েছে`,
+      'batch'
     );
+
+    // Atomic Cloud Firestore Sync: delete batch & update any affected students cleanly
+    if (affectedStudents.length > 0) {
+      const batchOp = writeBatch(db);
+      batchOp.delete(doc(db, 'batches', id));
+      affectedStudents.forEach((stu) => {
+        batchOp.set(doc(db, 'students', stu.id), { batchId: nextBatchId }, { merge: true });
+      });
+      batchOp.commit().catch((e) =>
+        handleFirestoreError(e, OperationType.DELETE, `batches/${id}`)
+      );
+    } else {
+      deleteDoc(doc(db, 'batches', id)).catch((e) =>
+        handleFirestoreError(e, OperationType.DELETE, `batches/${id}`)
+      );
+    }
   };
 
   // Teacher Actions (Only name + phone + passkey persisted)

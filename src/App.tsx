@@ -348,6 +348,7 @@ export default function App() {
   const {
     updateAvailable,
     isUpdating,
+    updateError,
     isDismissed,
     applyUpdate,
     dismissBanner,
@@ -360,6 +361,7 @@ export default function App() {
       <PWAUpdateBanner
         updateAvailable={updateAvailable}
         isUpdating={isUpdating}
+        updateError={updateError}
         isDismissed={isDismissed}
         onUpdateNow={() => void applyUpdate()}
         onDismiss={dismissBanner}

@@ -14,6 +14,7 @@ import {
   Filter,
   Check,
   Plus as PlusIcon,
+  AlertTriangle,
 } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
 import { Batch, ClassGrade } from '../../types';
@@ -42,8 +43,10 @@ export const BatchManagement: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
   const [viewingBatchStudents, setViewingBatchStudents] = useState<Batch | null>(null);
+  const [deletingBatch, setDeletingBatch] = useState<Batch | null>(null);
+  const [transferBatchId, setTransferBatchId] = useState<string>('');
   const [filterClass, setFilterClass] = useState<string>('সকল');
-  const [batchWarning, setBatchWarning] = useState<string>('');
+  const [batchFeedback, setBatchFeedback] = useState<string>('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -155,18 +158,33 @@ export const BatchManagement: React.FC = () => {
     setModalOpen(false);
   };
 
-  const handleDelete = (id: string, name: string) => {
-    const enrolled = students.filter((s) => s.batchId === id).length;
-    if (enrolled > 0) {
-      setBatchWarning(
-        `এই ব্যাচে বর্তমানে ${toBn(enrolled)} জন শিক্ষার্থী ভর্তি আছে। আগে তাদের অন্য ব্যাচে স্থানান্তর করুন।`
-      );
-      setTimeout(() => setBatchWarning(''), 5000);
-      return;
+  const requestDeleteBatch = (batch: Batch) => {
+    const sameClassOther = batches.find(
+      (b) => b.id !== batch.id && b.classGrade === batch.classGrade
+    );
+    setTransferBatchId(sameClassOther?.id || '');
+    setDeletingBatch(batch);
+  };
+
+  const confirmDeleteBatch = () => {
+    if (!deletingBatch) return;
+    const deletedName = deletingBatch.name;
+    const targetId = deletingBatch.id;
+
+    deleteBatch(targetId, transferBatchId || undefined);
+
+    if (viewingBatchStudents?.id === targetId) {
+      setViewingBatchStudents(null);
     }
-    if (window.confirm(`আপনি কি "${name}" ব্যাচটি মুছে ফেলতে চান?`)) {
-      deleteBatch(id);
+    if (editingBatch?.id === targetId) {
+      setEditingBatch(null);
+      setModalOpen(false);
     }
+
+    setDeletingBatch(null);
+    setTransferBatchId('');
+    setBatchFeedback(`"${deletedName}" ব্যাচটি সফলভাবে মুছে ফেলা হয়েছে।`);
+    window.setTimeout(() => setBatchFeedback(''), 4000);
   };
 
   const filteredBatches =
@@ -200,10 +218,13 @@ export const BatchManagement: React.FC = () => {
         </button>
       </div>
 
-      {batchWarning && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 text-xs font-semibold flex items-center justify-between">
-          <span>{batchWarning}</span>
-          <button type="button" onClick={() => setBatchWarning('')} className="p-1 text-amber-600 hover:text-amber-900">
+      {batchFeedback && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded-xl px-4 py-3 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{batchFeedback}</span>
+          </div>
+          <button type="button" onClick={() => setBatchFeedback('')} className="p-1 text-emerald-600 hover:text-emerald-900 dark:hover:text-emerald-200 cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -248,6 +269,7 @@ export const BatchManagement: React.FC = () => {
         feePayments={feePayments}
         filterClass={filterClass}
         onSelectBatch={(batch) => setViewingBatchStudents(batch)}
+        onDeleteBatch={(batch) => requestDeleteBatch(batch)}
       />
 
       {/* Batches Grid */}
@@ -369,16 +391,18 @@ export const BatchManagement: React.FC = () => {
 
                   <div className="flex items-center gap-1">
                     <button
+                      type="button"
                       onClick={() => handleOpenEdit(batch)}
                       title="ব্যাচ এডিট করুন"
-                      className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                      className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(batch.id, batch.name)}
-                      title="মুছে ফেলুন"
-                      className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition"
+                      type="button"
+                      onClick={() => requestDeleteBatch(batch)}
+                      title="ব্যাচ মুছে ফেলুন"
+                      className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -692,22 +716,130 @@ export const BatchManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
-                >
-                  বাতিল
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold rounded-xl shadow-md transition"
-                >
-                  {editingBatch ? 'সংরক্ষণ করুন' : 'ব্যাচ তৈরি করুন'}
-                </button>
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2.5">
+                {editingBatch ? (
+                  <button
+                    type="button"
+                    onClick={() => requestDeleteBatch(editingBatch)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    ব্যাচ মুছে ফেলুন
+                  </button>
+                ) : (
+                  <span />
+                )}
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
+                  >
+                    বাতিল
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold rounded-xl shadow-md transition cursor-pointer"
+                  >
+                    {editingBatch ? 'সংরক্ষণ করুন' : 'ব্যাচ তৈরি করুন'}
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* In-App Batch Delete Confirmation Modal */}
+      {deletingBatch && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/65 backdrop-blur-xs p-4 no-print">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-batch-modal-title"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-800"
+          >
+            <div className="px-6 pt-6 pb-4 flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-rose-50 dark:bg-rose-950/70 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3
+                  id="delete-batch-modal-title"
+                  className="text-base font-bold text-slate-900 dark:text-white"
+                >
+                  ব্যাচ মুছে ফেলার নিশ্চিতকরণ
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                  আপনি কি নিশ্চিতভাবে{' '}
+                  <strong className="text-slate-900 dark:text-white">
+                    "{deletingBatch.name}"
+                  </strong>{' '}
+                  ({deletingBatch.classGrade} শ্রেণি) ব্যাচটি মুছে ফেলতে চান?
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeletingBatch(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {(() => {
+              const enrolledInDeleting = students.filter(
+                (s) => s.batchId === deletingBatch.id
+              ).length;
+              const otherBatches = batches.filter((b) => b.id !== deletingBatch.id);
+
+              if (enrolledInDeleting === 0) return null;
+
+              return (
+                <div className="mx-6 mb-4 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 space-y-2.5">
+                  <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                    এই ব্যাচে বর্তমানে {toBn(enrolledInDeleting)} জন শিক্ষার্থী ভর্তি রয়েছে। ব্যাচটি মুছে ফেললেও শিক্ষার্থীদের তথ্য ও ফির হিসাব সম্পূর্ণ সুরক্ষিত থাকবে।
+                  </p>
+                  {otherBatches.length > 0 && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                        শিক্ষার্থীদের অন্য ব্যাচে স্থানান্তর (ঐচ্ছিক):
+                      </label>
+                      <select
+                        value={transferBatchId}
+                        onChange={(e) => setTransferBatchId(e.target.value)}
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-teal-600 font-medium"
+                      >
+                        <option value="">কোনো ব্যাচ ছাড়াই রাখুন (ব্যাচ আনঅ্যাসাইন)</option>
+                        {otherBatches.map((ob) => (
+                          <option key={ob.id} value={ob.id}>
+                            {ob.name} ({ob.classGrade})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDeletingBatch(null)}
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+              >
+                বাতিল করুন
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteBatch}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 shadow-sm transition cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                হ্যাঁ, মুছে ফেলুন
+              </button>
+            </div>
           </div>
         </div>
       )}

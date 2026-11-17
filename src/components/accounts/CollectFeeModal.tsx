@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { X, CreditCard, Check, AlertCircle, Lock } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { X, CreditCard, Check, AlertCircle, Lock, Search, ChevronDown } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
 import { Student, FeePayment, FeeType, PaymentMethod } from '../../types';
-import { toBn, bengaliMonths, formatTaka } from '../../utils/bengaliUtils';
+import { toBn, toEn, bengaliMonths, formatTaka } from '../../utils/bengaliUtils';
 
 interface CollectFeeModalProps {
   isOpen: boolean;
@@ -40,6 +40,8 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
     : 'অজ্ঞাত শিক্ষক';
 
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState(false);
   const [feeType, setFeeType] = useState<FeeType>('মাসিক টিউশন ফি');
   const [month, setMonth] = useState('সেপ্টেম্বর');
   const [year] = useState(2026);
@@ -49,15 +51,71 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
 
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
+    if (!isOpen) return;
+    setError('');
+    setSearchQuery('');
+    setIsStudentDropdownOpen(false);
     if (preSelectedStudent) {
       setSelectedStudentId(preSelectedStudent.id);
       setAmount(preSelectedStudent.monthlyFee);
-    } else if (students.length > 0 && !selectedStudentId) {
+    }
+  }, [preSelectedStudent, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || preSelectedStudent) return;
+    if (students.length > 0 && !selectedStudentId) {
       setSelectedStudentId(students[0].id);
       setAmount(students[0].monthlyFee);
     }
-  }, [preSelectedStudent, isOpen, students]);
+  }, [isOpen, preSelectedStudent, students, selectedStudentId]);
+
+  useEffect(() => {
+    if (!isStudentDropdownOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsStudentDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isStudentDropdownOpen]);
+
+  const batchMap = useMemo(() => {
+    const map = new Map<string, string>();
+    batches.forEach((b) => map.set(b.id, b.name));
+    return map;
+  }, [batches]);
+
+  const filteredStudents = useMemo(() => {
+    const raw = searchQuery.trim().toLowerCase();
+    if (!raw) return students;
+    const normalizedDigits = toEn(raw);
+
+    return students.filter((std) => {
+      const nameBn = (std.nameBn || '').toLowerCase();
+      const nameEn = (std.nameEn || '').toLowerCase();
+      const classGrade = (std.classGrade || '').toLowerCase();
+      const rollEn = toEn(String(std.roll || '')).toLowerCase();
+      const rollBn = toBn(std.roll || '').toLowerCase();
+      const gPhone = toEn(std.guardianPhone || '').toLowerCase();
+      const sPhone = toEn(std.studentPhone || '').toLowerCase();
+      const batchName = (batchMap.get(std.batchId) || '').toLowerCase();
+
+      return (
+        nameBn.includes(raw) ||
+        nameEn.includes(raw) ||
+        classGrade.includes(raw) ||
+        rollEn.includes(normalizedDigits) ||
+        rollBn.includes(raw) ||
+        gPhone.includes(normalizedDigits) ||
+        sPhone.includes(normalizedDigits) ||
+        batchName.includes(raw)
+      );
+    });
+  }, [students, searchQuery, batchMap]);
 
   if (!isOpen) return null;
 
@@ -70,6 +128,7 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
     if (stu) {
       setAmount(stu.monthlyFee);
     }
+    setIsStudentDropdownOpen(false);
   };
 
   const netPayable = Math.max(0, amount - discount);
@@ -116,9 +175,9 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto no-print">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-800">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-800 max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-teal-700 to-emerald-700 px-6 py-4 text-white flex items-center justify-between">
+        <div className="bg-gradient-to-r from-teal-700 to-emerald-700 px-6 py-4 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <CreditCard className="w-5 h-5" />
             <div>
@@ -129,6 +188,7 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
           >
@@ -137,13 +197,13 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
         </div>
 
         {error && (
-          <div className="bg-rose-50 dark:bg-rose-950/60 border-b border-rose-200 dark:border-rose-800 px-6 py-2.5 flex items-center gap-2 text-rose-700 dark:text-rose-200 text-xs font-semibold">
+          <div className="bg-rose-50 dark:bg-rose-950/60 border-b border-rose-200 dark:border-rose-800 px-6 py-2.5 flex items-center gap-2 text-rose-700 dark:text-rose-200 text-xs font-semibold shrink-0">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
           {/* Strictly Locked Automatic Teacher Detection Banner */}
           <div className="bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/90 dark:border-emerald-800/80 rounded-xl p-3 flex items-center justify-between text-xs shadow-xs">
             <div className="flex items-center gap-2">
@@ -164,34 +224,128 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({
             </span>
           </div>
 
-          {/* Select Student */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              শিক্ষার্থী নির্বাচন করুন *
-            </label>
-            <select
-              value={selectedStudentId}
-              onChange={(e) => handleStudentSelect(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600 font-medium"
-            >
-              {students.map((std) => (
-                <option key={std.id} value={std.id}>
-                  রোল {toBn(std.roll)} - {std.nameBn} ({std.classGrade})
-                </option>
-              ))}
-            </select>
+          {/* Search & Select Student */}
+          <div ref={dropdownRef} className="relative">
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                শিক্ষার্থী খুঁজুন ও নির্বাচন করুন *
+              </label>
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                মোট: {toBn(students.length)} জন
+              </span>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onFocus={() => setIsStudentDropdownOpen(true)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsStudentDropdownOpen(true);
+                }}
+                placeholder="নাম, রোল, শ্রেণি, ব্যাচ বা মোবাইল নম্বর দিয়ে খুঁজুন..."
+                className="w-full pl-9 pr-16 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-teal-600 focus:ring-1 focus:ring-teal-600 font-medium"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setIsStudentDropdownOpen(true);
+                    }}
+                    title="সার্চ মুছুন"
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsStudentDropdownOpen((prev) => !prev)}
+                  title="শিক্ষার্থীর তালিকা দেখুন"
+                  className="p-1 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                >
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${
+                      isStudentDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Searchable Dropdown List */}
+            {isStudentDropdownOpen && (
+              <div className="mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 z-20">
+                {filteredStudents.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                    "{searchQuery}" এর সাথে মিলে এমন কোনো শিক্ষার্থী পাওয়া যায়নি।
+                  </div>
+                ) : (
+                  filteredStudents.map((std) => {
+                    const isSelected = std.id === selectedStudentId;
+                    const stdBatchName = batchMap.get(std.batchId) || 'ব্যাচ নির্ধারিত নয়';
+                    return (
+                      <button
+                        type="button"
+                        key={std.id}
+                        onClick={() => handleStudentSelect(std.id)}
+                        className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between gap-2 transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-teal-50 dark:bg-teal-950/60'
+                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/70'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold">
+                              রোল {toBn(std.roll)}
+                            </span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                              {std.nameBn}
+                            </span>
+                            <span className="text-[11px] font-semibold text-teal-700 dark:text-teal-400">
+                              ({std.classGrade})
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                            {stdBatchName} • {std.guardianPhone || 'নম্বর নেই'}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400">
+                            {formatTaka(std.monthlyFee)}
+                          </span>
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Student quick detail badge */}
+          {/* Selected Student quick detail badge */}
           {currentStudent && (
-            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs flex items-center justify-between">
-              <div>
-                <p className="font-bold text-slate-800 dark:text-slate-100">{currentStudent.nameBn}</p>
-                <p className="text-slate-500 dark:text-slate-400">
-                  {currentStudent.schoolCollege} • ব্যাচ: {currentBatch?.name}
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-bold text-slate-800 dark:text-slate-100 truncate">
+                  রোল {toBn(currentStudent.roll)} - {currentStudent.nameBn} ({currentStudent.classGrade})
+                </p>
+                <p className="text-slate-500 dark:text-slate-400 truncate">
+                  {currentStudent.schoolCollege || 'প্রতিষ্ঠান উল্লেখ নেই'} • ব্যাচ:{' '}
+                  {currentBatch?.name || 'নির্ধারিত নয়'}
                 </p>
               </div>
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">মাসিক নির্ধারিত ফি:</span>
                 <p className="font-bold text-teal-800 dark:text-teal-400 text-sm">
                   {formatTaka(currentStudent.monthlyFee)}

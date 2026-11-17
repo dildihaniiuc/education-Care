@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BarChart3, Users, Banknote, Layers } from 'lucide-react';
+import { BarChart3, Users, Banknote, Layers, Trash2 } from 'lucide-react';
 import { Batch, FeePayment, Student } from '../../types';
 import { formatTaka, toBn } from '../../utils/bengaliUtils';
 
@@ -15,6 +15,7 @@ interface BatchSummaryCardProps {
   feePayments: FeePayment[];
   filterClass: string;
   onSelectBatch?: (batch: Batch) => void;
+  onDeleteBatch?: (batch: Batch) => void;
 }
 
 /**
@@ -27,6 +28,7 @@ export const BatchSummaryCard: React.FC<BatchSummaryCardProps> = ({
   feePayments,
   filterClass,
   onSelectBatch,
+  onDeleteBatch,
 }) => {
   const { items, totalStudents, totalCollectedFees } = useMemo(() => {
     const studentCountByBatch = new Map<string, number>();
@@ -136,6 +138,7 @@ export const BatchSummaryCard: React.FC<BatchSummaryCardProps> = ({
                 <th className="py-2 px-3">শ্রেণি</th>
                 <th className="py-2 px-3 text-right">মোট শিক্ষার্থী</th>
                 <th className="py-2 pl-3 text-right">মোট আদায়কৃত ফি</th>
+                {onDeleteBatch && <th className="py-2 pl-3 text-right">অ্যাকশন</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
@@ -171,6 +174,21 @@ export const BatchSummaryCard: React.FC<BatchSummaryCardProps> = ({
                   <td className="py-2.5 pl-3 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
                     {formatTaka(collectedFees)}
                   </td>
+                  {onDeleteBatch && (
+                    <td className="py-2.5 pl-3 text-right">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteBatch(batch);
+                        }}
+                        title="ব্যাচ মুছে ফেলুন"
+                        className="inline-flex items-center justify-center p-1.5 rounded-lg text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
