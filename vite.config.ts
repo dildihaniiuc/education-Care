@@ -49,14 +49,6 @@ export default defineConfig(() => {
       versionManifestPlugin(buildVersion),
       VitePWA({
         registerType: 'prompt',
-        includeAssets: [
-          'icon.svg',
-          'apple-touch-icon.png',
-          'pwa-192x192.png',
-          'pwa-512x512.png',
-          'pwa-maskable-512x512.png',
-          'assets/**/*',
-        ],
         manifest: {
           id: '/',
           name: 'এডুকেশন কেয়ার কোচিং সেন্টার',
@@ -66,6 +58,8 @@ export default defineConfig(() => {
           theme_color: '#064E3B',
           background_color: '#ffffff',
           display: 'standalone',
+          orientation: 'any',
+          prefer_related_applications: false,
           start_url: '/',
           scope: '/',
           icons: [
@@ -92,7 +86,7 @@ export default defineConfig(() => {
         workbox: {
           cleanupOutdatedCaches: true,
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}'],
           globIgnores: ['**/version.json'],
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [
