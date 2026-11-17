@@ -26,6 +26,9 @@ import { ChangePasskeyModal } from './components/auth/ChangePasskeyModal';
 import { TeacherWelcomeModal } from './components/auth/TeacherWelcomeModal';
 import { ScreenLockOverlay } from './components/auth/ScreenLockOverlay';
 import { IndividualMarksModal } from './components/exams/IndividualMarksModal';
+import { PWAUpdateBanner } from './components/pwa/PWAUpdateBanner';
+import { OfflineIndicator } from './components/pwa/OfflineIndicator';
+import { usePWAUpdate } from './hooks/usePWAUpdate';
 
 import { TabType, Student, FeePayment, Teacher } from './types';
 import { LayoutDashboard, Users, CreditCard, Award, Menu as MenuIcon } from 'lucide-react';
@@ -342,9 +345,27 @@ export function CoachingApp() {
 }
 
 export default function App() {
+  const {
+    updateAvailable,
+    isUpdating,
+    isDismissed,
+    applyUpdate,
+    dismissBanner,
+    reopenBanner,
+  } = usePWAUpdate();
+
   return (
     <CoachingProvider>
       <CoachingApp />
+      <PWAUpdateBanner
+        updateAvailable={updateAvailable}
+        isUpdating={isUpdating}
+        isDismissed={isDismissed}
+        onUpdateNow={() => void applyUpdate()}
+        onDismiss={dismissBanner}
+        onReopen={reopenBanner}
+      />
+      <OfflineIndicator />
     </CoachingProvider>
   );
 }

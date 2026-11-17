@@ -13,6 +13,7 @@ import {
 import { useCoaching } from '../../context/CoachingContext';
 import { BrandLogo } from '../common/BrandLogo';
 import { AnimatedSlogan } from './AnimatedSlogan';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { cleanPhoneNumber } from '../../utils/bengaliUtils';
 
 interface LandingPageProps {
@@ -87,14 +88,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSuccessLogin }) => {
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={toggleDarkMode}
-          aria-label="থিম পরিবর্তন"
-          className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200 transition cursor-pointer shrink-0"
-        >
-          {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <PWAInstallButton />
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            aria-label="থিম পরিবর্তন"
+            className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200 transition cursor-pointer shrink-0"
+          >
+            {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+          </button>
+        </div>
       </header>
 
       {/* Main White-Background Split Showcase */}

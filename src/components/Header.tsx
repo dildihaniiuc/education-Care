@@ -14,6 +14,7 @@ import { useCoaching } from '../context/CoachingContext';
 import { formatBengaliDate } from '../utils/bengaliUtils';
 import { TabType } from '../types';
 import { BrandLogo } from './common/BrandLogo';
+import { PWAInstallButton } from './pwa/PWAInstallButton';
 
 interface HeaderProps {
   onOpenMobileSidebar: () => void;
@@ -66,6 +67,8 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Quick Actions + Teacher Profile */}
         <div className="flex items-center gap-2 shrink-0">
+          <PWAInstallButton compact />
+
           <button
             id="quick-action-admission"
             onClick={onOpenNewAdmission}
