@@ -23,10 +23,10 @@ export interface PWAUpdateState {
 
 /**
  * Reliable PWA update detection & user-confirmed activation hook.
- * - Checks Service Worker updates + /version.json (NetworkOnly / cache: 'no-store') on boot,
- *   focus, visibilitychange, online recovery, and every 60s.
- * - Never deletes or overwrites IndexedDB / Firestore / localStorage data.
- * - Activates the waiting Service Worker cleanly only after user clicks "Update Now".
+ * - Detects updates via Service Worker waiting state AND network-only /version.json probe.
+ * - Handles stalled/broken older SW installations cleanly by unregistering stale SW & purging
+ *   only static CacheStorage caches (never touching IndexedDB / Firestore / localStorage).
+ * - Uses cache-busted navigation replacement on reload so standalone PWAs never reload stale HTML.
  */
 export function usePWAUpdate(): PWAUpdateState {
   const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -56,6 +56,19 @@ export function usePWAUpdate(): PWAUpdateState {
     },
   });
 
+  // Clean temporary cache-buster query param after reload completes
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('_pwa_u')) {
+        url.searchParams.delete('_pwa_u');
+        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const checkForUpdate = useCallback(async (): Promise<boolean> => {
     if (isCheckingRef.current) return false;
     if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
@@ -64,15 +77,19 @@ export function usePWAUpdate(): PWAUpdateState {
     let foundUpdate = false;
 
     try {
-      // 1. Trigger standard Service Worker byte-for-byte check on server
-      if (registrationRef.current) {
-        await registrationRef.current.update().catch(() => {});
-        if (registrationRef.current.waiting) {
+      let reg = registrationRef.current;
+      if (!reg && 'serviceWorker' in navigator) {
+        reg = (await navigator.serviceWorker.getRegistration().catch(() => undefined)) || null;
+        if (reg) registrationRef.current = reg;
+      }
+
+      if (reg) {
+        await reg.update().catch(() => {});
+        if (reg.waiting) {
           foundUpdate = true;
         }
       }
 
-      // 2. Also probe /version.json directly from network (never cached) to catch new Vercel deploys
       const response = await fetch(`/version.json?t=${Date.now()}`, {
         cache: 'no-store',
         headers: {
@@ -95,15 +112,14 @@ export function usePWAUpdate(): PWAUpdateState {
             setHasRemoteVersionMismatch(true);
             foundUpdate = true;
 
-            // Ask SW to fetch any updated assets if not already waiting
-            if (registrationRef.current) {
-              await registrationRef.current.update().catch(() => {});
+            if (reg) {
+              await reg.update().catch(() => {});
             }
           }
         }
       }
     } catch {
-      // Network might be temporarily unreachable; ignore silently
+      // Network temporarily unavailable; keep current state quietly
     } finally {
       isCheckingRef.current = false;
     }
@@ -111,7 +127,6 @@ export function usePWAUpdate(): PWAUpdateState {
     return foundUpdate;
   }, [currentVersion]);
 
-  // Run initial check and re-check on focus, tab visibility, reconnect, and interval
   useEffect(() => {
     const initialTimer = window.setTimeout(() => {
       void checkForUpdate();
@@ -148,7 +163,6 @@ export function usePWAUpdate(): PWAUpdateState {
     };
   }, [checkForUpdate]);
 
-  // If SW just notified needRefresh, make sure banner is visible
   useEffect(() => {
     if (needRefresh) {
       setIsDismissed(false);
@@ -159,52 +173,88 @@ export function usePWAUpdate(): PWAUpdateState {
     if (isUpdating) return;
     setIsUpdating(true);
 
-    const safeReload = () => {
+    const reloadFresh = () => {
       if (reloadingRef.current) return;
       reloadingRef.current = true;
-      window.location.reload();
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('_pwa_u', remoteVersion || String(Date.now()));
+        window.location.replace(url.toString());
+      } catch {
+        window.location.reload();
+      }
+    };
+
+    const clearStaticCachesOnly = async () => {
+      if (!('caches' in window)) return;
+      try {
+        const cacheKeys = await caches.keys();
+        await Promise.all(
+          cacheKeys
+            .filter((key) => !key.includes('firestore') && !key.includes('firebase'))
+            .map((key) => caches.delete(key))
+        );
+      } catch {
+        // ignore cache delete errors
+      }
     };
 
     try {
-      // Listen for the new service worker taking control before reloading
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.addEventListener('controllerchange', safeReload, { once: true });
+        navigator.serviceWorker.addEventListener('controllerchange', reloadFresh, { once: true });
       }
 
-      const reg = registrationRef.current;
+      let reg = registrationRef.current;
+      if (!reg && 'serviceWorker' in navigator) {
+        reg = (await navigator.serviceWorker.getRegistration().catch(() => undefined)) || null;
+        if (reg) registrationRef.current = reg;
+      }
 
-      // Refresh registration first if no waiting worker yet
       if (reg && !reg.waiting) {
         await reg.update().catch(() => {});
+
+        // If a new SW is actively installing right now, wait briefly for it to reach waiting state
+        if (reg.installing) {
+          await new Promise<void>((resolve) => {
+            const installing = reg!.installing!;
+            const timeout = window.setTimeout(resolve, 4000);
+            installing.addEventListener('statechange', () => {
+              if (installing.state === 'installed' || installing.state === 'redundant') {
+                window.clearTimeout(timeout);
+                resolve();
+              }
+            });
+          });
+        }
       }
 
-      if (needRefresh || reg?.waiting) {
-        await updateServiceWorker(true);
-      } else {
-        // Fallback when update was detected via /version.json before SW entered waiting state:
-        // Clear static CacheStorage asset caches ONLY (never touch IndexedDB / Firestore / localStorage)
-        if ('caches' in window) {
-          const cacheKeys = await caches.keys();
-          await Promise.all(
-            cacheKeys
-              .filter((key) => !key.includes('firestore') && !key.includes('firebase'))
-              .map((key) => caches.delete(key))
-          );
-        }
-        if (reg) {
-          await reg.update().catch(() => {});
-        }
-        safeReload();
+      if (reg?.waiting) {
+        // Send SKIP_WAITING directly and also invoke workbox-window update helper
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        await updateServiceWorker(true).catch(() => {});
+        window.setTimeout(reloadFresh, 1800);
         return;
       }
 
-      // Safety fallback reload in case controllerchange does not fire promptly
-      window.setTimeout(safeReload, 2500);
+      if (needRefresh) {
+        await updateServiceWorker(true).catch(() => {});
+        window.setTimeout(reloadFresh, 1800);
+        return;
+      }
+
+      // No waiting SW found despite version mismatch (e.g., older/broken SW or HTTP-cached HTML):
+      // Unregister stale SW if present, clear only static CacheStorage, and force fresh navigation
+      if (reg) {
+        await reg.unregister().catch(() => {});
+      }
+      await clearStaticCachesOnly();
+      reloadFresh();
     } catch (error) {
-      console.warn('PWA update activation fallback reload:', error);
-      safeReload();
+      console.warn('PWA update activation fallback:', error);
+      await clearStaticCachesOnly();
+      reloadFresh();
     }
-  }, [isUpdating, needRefresh, updateServiceWorker]);
+  }, [isUpdating, needRefresh, remoteVersion, updateServiceWorker]);
 
   const dismissBanner = useCallback(() => {
     setIsDismissed(true);

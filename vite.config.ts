@@ -52,7 +52,7 @@ export default defineConfig(() => {
         manifest: {
           id: '/',
           name: 'Education Care Coaching Center',
-          short_name: 'Edu Care',
+          short_name: 'Education Care Coaching Center',
           description:
             'Education Care Coaching Center - Digital Coaching & Academic Management System.',
           theme_color: '#064E3B',

@@ -26,14 +26,15 @@ export const PWAUpdateBanner: React.FC<PWAUpdateBannerProps> = ({
   // Compact persistent reminder button if user temporarily dismissed the card
   if (isDismissed) {
     return (
-      <div className="fixed bottom-20 md:bottom-5 right-4 z-50 no-print">
+      <div className="fixed bottom-20 md:bottom-5 right-4 z-[100] pointer-events-auto no-print">
         <button
           type="button"
           onClick={onReopen}
-          className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#065F46] hover:bg-[#064E3B] text-white text-xs font-bold shadow-lg border border-emerald-400/30 transition cursor-pointer"
+          disabled={isUpdating}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#065F46] hover:bg-[#064E3B] text-white text-xs font-bold shadow-lg border border-emerald-400/30 transition cursor-pointer disabled:opacity-60"
         >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>নতুন আপডেট রয়েছে</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${isUpdating ? 'animate-spin' : ''}`} />
+          <span>{isUpdating ? 'আপডেট হচ্ছে...' : 'নতুন আপডেট রয়েছে'}</span>
         </button>
       </div>
     );
@@ -43,7 +44,7 @@ export const PWAUpdateBanner: React.FC<PWAUpdateBannerProps> = ({
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-20 md:bottom-5 right-4 left-4 sm:left-auto sm:w-[390px] z-50 bg-white dark:bg-slate-900 border-2 border-[#065F46] dark:border-emerald-600 rounded-2xl shadow-2xl p-4 no-print"
+      className="fixed bottom-20 md:bottom-5 right-4 left-4 sm:left-auto sm:w-[390px] z-[100] pointer-events-auto bg-white dark:bg-slate-900 border-2 border-[#065F46] dark:border-emerald-600 rounded-2xl shadow-2xl p-4 no-print"
     >
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 text-[#065F46] dark:text-emerald-300 flex items-center justify-center shrink-0">
@@ -78,7 +79,7 @@ export const PWAUpdateBanner: React.FC<PWAUpdateBannerProps> = ({
               className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#065F46] hover:bg-[#064E3B] active:scale-[0.99] text-white text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-60"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isUpdating ? 'animate-spin' : ''}`} />
-              <span>{isUpdating ? 'আপডেট হচ্ছে...' : 'Update Now'}</span>
+              <span>{isUpdating ? 'নতুন ভার্সন লোড হচ্ছে...' : 'Update Now'}</span>
             </button>
 
             <button
