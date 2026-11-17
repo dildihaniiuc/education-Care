@@ -16,8 +16,9 @@ import {
 } from 'lucide-react';
 import { useCoaching } from '../../context/CoachingContext';
 import { Teacher } from '../../types';
-import { toBn, formatBengaliDate } from '../../utils/bengaliUtils';
+import { toBn, formatBengaliDate, cleanPhoneNumber } from '../../utils/bengaliUtils';
 import { SHORTCUT_TEACHERS } from '../../constants/academicData';
+import { defaultStaffTeachers } from '../../data/initialData';
 import { ChangePasskeyModal } from '../auth/ChangePasskeyModal';
 
 export const TeacherManagement: React.FC = () => {
@@ -78,10 +79,16 @@ export const TeacherManagement: React.FC = () => {
     const exists = teachers.some((t) => t.name === preset.name);
     if (exists) return;
 
+    const staffPreset = defaultStaffTeachers.find(
+      (st) =>
+        st.name.trim() === preset.name.trim() ||
+        cleanPhoneNumber(st.phone) === cleanPhoneNumber(preset.phone)
+    );
+
     addTeacher({
       name: preset.name,
       phone: preset.phone,
-      pin: '1234',
+      pin: staffPreset?.pin || '1122',
     });
   };
 

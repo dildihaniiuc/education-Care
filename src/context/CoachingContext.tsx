@@ -139,6 +139,7 @@ const THEME_KEY = 'education_care_theme_mode';
 const RESET_DATA_KEY = 'education_care_v3_cleared_teachers_students';
 const CLEAN_STAFF_V4_KEY = 'education_care_v4_clean_staff_routines';
 const LAST_LOGIN_PHONE_KEY = 'education_care_last_teacher_phone';
+const DELETED_TEACHERS_KEY = 'education_care_deleted_teacher_ids';
 
 const stripTeacherMeta = (t: Teacher): Teacher => ({
   id: t.id,
@@ -146,6 +147,52 @@ const stripTeacherMeta = (t: Teacher): Teacher => ({
   phone: t.phone,
   pin: t.pin,
 });
+
+const findDefaultStaffPreset = (candidate: Partial<Teacher>): Teacher | undefined => {
+  const cleanTargetPhone = cleanPhoneNumber(candidate.phone);
+  return defaultStaffTeachers.find(
+    (st) =>
+      (candidate.id && st.id === candidate.id) ||
+      (candidate.name && st.name.trim() === candidate.name.trim()) ||
+      (cleanTargetPhone && cleanPhoneNumber(st.phone) === cleanTargetPhone)
+  );
+};
+
+const getFallbackPin = (candidate: Partial<Teacher>): string => {
+  const preset = findDefaultStaffPreset(candidate);
+  return preset?.pin || '1122';
+};
+
+const getDeletedTeacherIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem(DELETED_TEACHERS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const markTeacherDeleted = (ids: string[]) => {
+  try {
+    const current = new Set(getDeletedTeacherIds());
+    ids.forEach((id) => current.add(id));
+    localStorage.setItem(DELETED_TEACHERS_KEY, JSON.stringify(Array.from(current)));
+  } catch {
+    // ignore
+  }
+};
+
+const unmarkTeachersDeleted = (ids: string[]) => {
+  try {
+    const removeSet = new Set(ids);
+    const next = getDeletedTeacherIds().filter((id) => !removeSet.has(id));
+    localStorage.setItem(DELETED_TEACHERS_KEY, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+};
 
 export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Dark Mode Theme initialization
@@ -238,34 +285,40 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
 
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
+    const deletedIds = new Set(getDeletedTeacherIds());
     const saved = localStorage.getItem(`${STORAGE_KEY}_teachers`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const normalized: Teacher[] = parsed.map((t: Teacher) => {
-            const staffPreset = defaultStaffTeachers.find(
-              (st) => st.id === t.id || st.name.trim() === t.name.trim()
-            );
+            const staffPreset = findDefaultStaffPreset(t);
             return stripTeacherMeta({
               id: t.id,
-              name: t.name,
-              phone: t.phone || staffPreset?.phone || '',
-              pin: t.pin ? t.pin : (staffPreset?.pin || '1122'),
+              name: t.name?.trim() || staffPreset?.name || 'শিক্ষক',
+              phone: t.phone?.trim() || staffPreset?.phone || '',
+              pin: t.pin ? String(t.pin) : (staffPreset?.pin || '1122'),
             });
           });
-          const hasRiaz = normalized.some((t: Teacher) => t.name === 'মো রিয়াজ');
-          if (!hasRiaz) {
-            const riazPreset = defaultStaffTeachers.find((t) => t.name === 'মো রিয়াজ');
-            if (riazPreset) normalized.push(stripTeacherMeta(riazPreset));
-          }
+          defaultStaffTeachers.forEach((preset) => {
+            if (deletedIds.has(preset.id)) return;
+            const exists = normalized.some(
+              (t) =>
+                t.id === preset.id ||
+                t.name.trim() === preset.name.trim() ||
+                cleanPhoneNumber(t.phone) === cleanPhoneNumber(preset.phone)
+            );
+            if (!exists) {
+              normalized.push(stripTeacherMeta(preset));
+            }
+          });
           return normalized;
         }
       } catch {
         // fallback
       }
     }
-    return defaultStaffTeachers.map(stripTeacherMeta);
+    return defaultStaffTeachers.filter((t) => !deletedIds.has(t.id)).map(stripTeacherMeta);
   });
 
   // Remember last logged-in teacher's phone number for quick re-entry
@@ -395,7 +448,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!teacher) {
       return { success: false, message: 'শিক্ষক খুঁজে পাওয়া যায়নি!' };
     }
-    const expectedPin = cleanPasskey(teacher.pin || '1234');
+    const expectedPin = cleanPasskey(teacher.pin || getFallbackPin(teacher));
     if (cleanPasskey(pin) !== expectedPin) {
       return { success: false, message: 'ভুল নিরাপত্তা পিন (PIN) / পাস কী!' };
     }
@@ -408,7 +461,10 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     setIsScreenLocked(false);
     addAuditLog('শিক্ষক লগইন', `${teacher.name} সিস্টেমে প্রবেশ করেছেন`, 'security');
-    return { success: true, message: `স্বাগতম, ${teacher.name}!` };
+    return {
+      success: true,
+      message: `স্বাগতম '${teacher.name} স্যার'! ভুল করেও আপনার পাসওয়ার্ড কাউকে শেয়ার করবেন না। তাহলে আপনি নিরাপত্তা ঝুঁকিতে পড়তে পারেন।`,
+    };
   };
 
   const loginWithPhoneAndPasskey = (
@@ -438,7 +494,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: 'এই ফোন নম্বরটি কোনো নিবন্ধিত শিক্ষকের সাথে মেলেনি!' };
     }
 
-    const expectedPin = cleanPasskey(teacher.pin || '1234');
+    const expectedPin = cleanPasskey(teacher.pin || getFallbackPin(teacher));
     if (cleanInputPasskey !== expectedPin) {
       return {
         success: false,
@@ -459,7 +515,11 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       `${teacher.name} মোবাইল ও পাস কী দিয়ে সিস্টেমে প্রবেশ করেছেন`,
       'security'
     );
-    return { success: true, message: `স্বাগতম, ${teacher.name}!`, teacher };
+    return {
+      success: true,
+      message: `স্বাগতম '${teacher.name} স্যার'! ভুল করেও আপনার পাসওয়ার্ড কাউকে শেয়ার করবেন না। তাহলে আপনি নিরাপত্তা ঝুঁকিতে পড়তে পারেন।`,
+      teacher,
+    };
   };
 
   const changeTeacherPasskey = (
@@ -477,7 +537,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!teacher) {
       return { success: false, message: 'শিক্ষক পাওয়া যায়নি।' };
     }
-    if (cleanOld !== cleanPasskey(teacher.pin || '1234')) {
+    if (cleanOld !== cleanPasskey(teacher.pin || getFallbackPin(teacher))) {
       return { success: false, message: 'আপনার বর্তমান পাস কী সঠিক নয়!' };
     }
     if (cleanNew.length < 4) {
@@ -542,7 +602,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: 'শিক্ষক পাওয়া যায়নি।' };
     }
     const cleanOld = cleanPasskey(currentPasskey);
-    if (cleanOld !== cleanPasskey(teacher.pin || '1234')) {
+    if (cleanOld !== cleanPasskey(teacher.pin || getFallbackPin(teacher))) {
       return { success: false, message: 'পাস কী সঠিক নয়! নম্বর পরিবর্তনের জন্য সঠিক পাস কী দিন।' };
     }
 
@@ -622,7 +682,9 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const unlockScreen = (pin: string): boolean => {
-    const expectedPin = cleanPasskey(currentTeacher?.pin || '1234');
+    const expectedPin = cleanPasskey(
+      currentTeacher?.pin || (currentTeacher ? getFallbackPin(currentTeacher) : '1122')
+    );
     if (cleanPasskey(pin) === expectedPin) {
       setIsScreenLocked(false);
       addAuditLog('স্ক্রিন আনলক', `${currentTeacher?.name || 'শিক্ষক'} স্ক্রিন আনলক করেছেন`, 'security');
@@ -695,22 +757,65 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         )
       );
 
-      // 5. Teachers
+      // 5. Teachers (normalize partial docs & backfill missing default teachers cleanly)
       unsubs.push(
         onSnapshot(
           collection(db, 'teachers'),
           (snapshot) => {
-            if (!snapshot.empty) {
-              const list = snapshot.docs.map((d) =>
-                stripTeacherMeta({ ...(d.data() as Teacher), id: d.id })
-              );
-              setTeachers(list);
+            const deletedIds = new Set(getDeletedTeacherIds());
+            const docsToRepair: Teacher[] = [];
+
+            const normalizedFromCloud: Teacher[] = snapshot.docs.map((d) => {
+              const raw = d.data() as Partial<Teacher>;
+              const preset = findDefaultStaffPreset({ ...raw, id: d.id });
+              const repaired: Teacher = stripTeacherMeta({
+                id: d.id,
+                name: raw.name?.trim() || preset?.name || 'শিক্ষক',
+                phone: raw.phone?.trim() || preset?.phone || '',
+                pin: raw.pin ? String(raw.pin).trim() : (preset?.pin || '1122'),
+              });
+
+              if (!raw.name?.trim() || !raw.phone?.trim() || !raw.pin) {
+                docsToRepair.push(repaired);
+              }
+              return repaired;
+            });
+
+            // Only backfill missing default teachers from authoritative server state (never from stale empty cache)
+            const missingDefaults: Teacher[] = !snapshot.metadata.fromCache
+              ? defaultStaffTeachers
+                  .filter((preset) => {
+                    if (deletedIds.has(preset.id)) return false;
+                    return !normalizedFromCloud.some(
+                      (existing) =>
+                        existing.id === preset.id ||
+                        existing.name.trim() === preset.name.trim() ||
+                        cleanPhoneNumber(existing.phone) === cleanPhoneNumber(preset.phone)
+                    );
+                  })
+                  .map(stripTeacherMeta)
+              : [];
+
+            const combinedList = [...normalizedFromCloud, ...missingDefaults];
+
+            if (combinedList.length > 0 || !snapshot.metadata.fromCache) {
+              setTeachers(combinedList);
               setCurrentTeacher((prev) => {
                 if (!prev) return null;
-                const match = list.find((t) => t.id === prev.id);
+                const match = combinedList.find((t) => t.id === prev.id);
                 return match ? match : prev;
               });
               setIsCloudSynced(true);
+            }
+
+            if (docsToRepair.length > 0 || missingDefaults.length > 0) {
+              const batch = writeBatch(db);
+              [...docsToRepair, ...missingDefaults].forEach((t) => {
+                batch.set(doc(db, 'teachers', t.id), stripTeacherMeta(t));
+              });
+              batch.commit().catch((e) =>
+                handleFirestoreError(e, OperationType.WRITE, 'teachers')
+              );
             }
           },
           (error) => handleFirestoreError(error, OperationType.GET, 'teachers')
@@ -984,6 +1089,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const deleteTeacher = (id: string) => {
     const tch = teachers.find((t) => t.id === id);
+    markTeacherDeleted([id]);
     setTeachers((prev) => prev.filter((t) => t.id !== id));
     addAuditLog('শিক্ষক অব্যাহতি', `${tch?.name || 'শিক্ষক'} কে সরানো হয়েছে`, 'security');
 
@@ -1687,6 +1793,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const seedDefaultTeachers = () => {
+    unmarkTeachersDeleted(defaultStaffTeachers.map((t) => t.id));
     const missing = defaultStaffTeachers
       .filter(
         (preset) =>
@@ -1703,9 +1810,13 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const mergedList = [...teachers, ...missing];
     setTeachers(mergedList);
+    const batch = writeBatch(db);
     missing.forEach((t) => {
-      setDoc(doc(db, 'teachers', t.id), t).catch(() => {});
+      batch.set(doc(db, 'teachers', t.id), t);
     });
+    batch.commit().catch((e) =>
+      handleFirestoreError(e, OperationType.WRITE, 'teachers')
+    );
   };
 
   const clearAllStudents = () => {
@@ -1714,8 +1825,19 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const clearAllTeachers = () => {
+    const currentIds = teachers.map((t) => t.id);
+    markTeacherDeleted([...currentIds, ...defaultStaffTeachers.map((t) => t.id)]);
     setTeachers([]);
     localStorage.removeItem(`${STORAGE_KEY}_teachers`);
+    if (currentIds.length > 0) {
+      const batch = writeBatch(db);
+      currentIds.forEach((id) => {
+        batch.delete(doc(db, 'teachers', id));
+      });
+      batch.commit().catch((e) =>
+        handleFirestoreError(e, OperationType.DELETE, 'teachers')
+      );
+    }
   };
 
   // Empty all official records

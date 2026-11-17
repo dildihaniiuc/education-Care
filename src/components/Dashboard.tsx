@@ -12,11 +12,13 @@ import {
   Search,
   Award,
   Play,
+  ShieldAlert,
 } from 'lucide-react';
 import { useCoaching } from '../context/CoachingContext';
 import { toBn, formatTaka, formatBengaliDate } from '../utils/bengaliUtils';
 import { TabType, Student, FeePayment } from '../types';
 import { BrandLogo } from './common/BrandLogo';
+import { StudentClassChartCard } from './dashboard/StudentClassChartCard';
 
 interface DashboardProps {
   onNavigate: (tab: TabType) => void;
@@ -99,8 +101,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {formatBengaliDate(todayStr)}
           </p>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight mt-0.5">
-            স্বাগতম, {currentTeacher?.name || 'শিক্ষক'}
+            স্বাগতম &apos;{currentTeacher?.name || 'শিক্ষক'} স্যার&apos;
           </h1>
+          <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mt-1 flex items-center gap-1.5">
+            <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              ভুল করেও আপনার পাসওয়ার্ড কাউকে শেয়ার করবেন না। তাহলে আপনি নিরাপত্তা ঝুঁকিতে পড়তে পারেন।
+            </span>
+          </p>
         </div>
 
         <div className="relative w-full sm:w-80">
@@ -310,6 +318,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Class-wise Student Pie Chart & Bar Graph */}
+      <StudentClassChartCard
+        students={students}
+        onNavigateStudents={() => onNavigate('students')}
+        onOpenNewAdmission={onOpenNewAdmission}
+      />
 
       {/* Bottom Split: Batches & Recent Fee Collections */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

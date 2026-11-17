@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CoachingProvider, useCoaching } from './context/CoachingContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -23,10 +23,11 @@ import { CollectFeeModal } from './components/accounts/CollectFeeModal';
 import { MoneyReceiptModal } from './components/accounts/MoneyReceiptModal';
 import { TeacherAuthModal } from './components/auth/TeacherAuthModal';
 import { ChangePasskeyModal } from './components/auth/ChangePasskeyModal';
+import { TeacherWelcomeModal } from './components/auth/TeacherWelcomeModal';
 import { ScreenLockOverlay } from './components/auth/ScreenLockOverlay';
 import { IndividualMarksModal } from './components/exams/IndividualMarksModal';
 
-import { TabType, Student, FeePayment } from './types';
+import { TabType, Student, FeePayment, Teacher } from './types';
 import { LayoutDashboard, Users, CreditCard, Award, Menu as MenuIcon } from 'lucide-react';
 
 export function CoachingApp() {
@@ -50,6 +51,20 @@ export function CoachingApp() {
   const [isChangePasskeyOpen, setIsChangePasskeyOpen] = useState(false);
   const [passkeyModalTab, setPasskeyModalTab] = useState<'passkey' | 'phone'>('passkey');
   const [individualMarksStudent, setIndividualMarksStudent] = useState<Student | null>(null);
+  const [welcomeTeacher, setWelcomeTeacher] = useState<Teacher | null>(null);
+  const lastWelcomedTeacherIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!currentTeacher) {
+      lastWelcomedTeacherIdRef.current = null;
+      setWelcomeTeacher(null);
+      return;
+    }
+    if (lastWelcomedTeacherIdRef.current !== currentTeacher.id) {
+      lastWelcomedTeacherIdRef.current = currentTeacher.id;
+      setWelcomeTeacher(currentTeacher);
+    }
+  }, [currentTeacher]);
 
   // If no teacher is logged in, strictly display the Landing Page Gatekeeper
   if (!currentTeacher) {
@@ -313,6 +328,12 @@ export function CoachingApp() {
           onClose={() => setIndividualMarksStudent(null)}
         />
       )}
+
+      {/* Post-Login Welcome & Password Security Alert */}
+      <TeacherWelcomeModal
+        teacher={welcomeTeacher}
+        onClose={() => setWelcomeTeacher(null)}
+      />
 
       {/* Security Screen Lock Overlay */}
       <ScreenLockOverlay />

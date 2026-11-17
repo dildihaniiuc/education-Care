@@ -23,12 +23,21 @@ import {
   SHORTCUT_TEACHERS,
   SHORTCUT_SUBJECTS,
 } from '../../constants/academicData';
+import { BatchSummaryCard } from './BatchSummaryCard';
 
 const availableDays = ['শনি', 'রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র'];
 
 export const BatchManagement: React.FC = () => {
-  const { batches, teachers, students, addBatch, updateBatch, deleteBatch, addTeacher } =
-    useCoaching();
+  const {
+    batches,
+    teachers,
+    students,
+    feePayments,
+    addBatch,
+    updateBatch,
+    deleteBatch,
+    addTeacher,
+  } = useCoaching();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
@@ -231,6 +240,15 @@ export const BatchManagement: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Batch Summary Overview Card */}
+      <BatchSummaryCard
+        batches={filteredBatches}
+        students={students}
+        feePayments={feePayments}
+        filterClass={filterClass}
+        onSelectBatch={(batch) => setViewingBatchStudents(batch)}
+      />
 
       {/* Batches Grid */}
       {filteredBatches.length === 0 ? (
