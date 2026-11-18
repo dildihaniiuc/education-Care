@@ -41,7 +41,7 @@
   ],
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|fonts/|sw\\.js|workbox-.*|version\\.json|manifest\\.webmanifest).*)",
       "destination": "/index.html"
     }
   ]

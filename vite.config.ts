@@ -89,7 +89,7 @@ export default defineConfig(() => {
           cleanupOutdatedCaches: true,
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}'],
-          globIgnores: ['**/version.json', '**/pwa-*.png'],
+          globIgnores: ['**/index.html', '**/version.json', '**/pwa-*.png'],
           navigateFallback: undefined,
           runtimeCaching: [
             // Always try network first for HTML navigation so reloads/updates never get stuck on stale HTML

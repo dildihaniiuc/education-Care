@@ -194,10 +194,51 @@ const unmarkTeachersDeleted = (ids: string[]) => {
   }
 };
 
+const safeParseArray = <T,>(key: string, fallback: T[]): T[] => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const safeParseObject = <T extends object>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return { ...fallback, ...(parsed as Partial<T>) };
+    }
+    return fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const safeGetLocalStorage = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeSetLocalStorage = (key: string, value: string): void => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore storage quota or security errors so UI never crashes
+  }
+};
+
 export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Dark Mode Theme initialization
   const [darkMode, setDarkModeState] = useState<boolean>(() => {
-    const saved = localStorage.getItem(THEME_KEY);
+    const saved = safeGetLocalStorage(THEME_KEY);
     if (saved !== null) {
       return saved === 'dark';
     }
@@ -210,7 +251,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem(THEME_KEY, darkMode ? 'dark' : 'light');
+    safeSetLocalStorage(THEME_KEY, darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
   const toggleDarkMode = () => {
@@ -266,27 +307,28 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
 
-  const [settings, setSettings] = useState<InstituteSettings>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_settings`);
-    return saved ? JSON.parse(saved) : initialInstituteSettings;
-  });
+  const [settings, setSettings] = useState<InstituteSettings>(() =>
+    safeParseObject(`${STORAGE_KEY}_settings`, initialInstituteSettings)
+  );
 
   const [students, setStudents] = useState<Student[]>(() => {
-    if (!localStorage.getItem(RESET_DATA_KEY)) {
+    try {
+      if (!localStorage.getItem(RESET_DATA_KEY)) {
+        return [];
+      }
+    } catch {
       return [];
     }
-    const saved = localStorage.getItem(`${STORAGE_KEY}_students`);
-    return saved ? JSON.parse(saved) : initialStudents;
+    return safeParseArray(`${STORAGE_KEY}_students`, initialStudents);
   });
 
-  const [batches, setBatches] = useState<Batch[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_batches`);
-    return saved ? JSON.parse(saved) : initialBatches;
-  });
+  const [batches, setBatches] = useState<Batch[]>(() =>
+    safeParseArray(`${STORAGE_KEY}_batches`, initialBatches)
+  );
 
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
     const deletedIds = new Set(getDeletedTeacherIds());
-    const saved = localStorage.getItem(`${STORAGE_KEY}_teachers`);
+    const saved = safeGetLocalStorage(`${STORAGE_KEY}_teachers`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -323,11 +365,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Remember last logged-in teacher's phone number for quick re-entry
   const [lastLoginPhone, setLastLoginPhone] = useState<string>(() => {
-    try {
-      return localStorage.getItem(LAST_LOGIN_PHONE_KEY) || '';
-    } catch {
-      return '';
-    }
+    return safeGetLocalStorage(LAST_LOGIN_PHONE_KEY) || '';
   });
 
   // Session-only logged-in teacher: exiting/reloading always requires passkey verification
@@ -345,7 +383,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Audit Logs
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_audit_logs`);
+    const saved = safeGetLocalStorage(`${STORAGE_KEY}_audit_logs`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -365,49 +403,31 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ];
   });
 
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_attendance`);
-    return saved ? JSON.parse(saved) : initialAttendanceRecords;
-  });
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>(() =>
+    safeParseArray(`${STORAGE_KEY}_attendance`, initialAttendanceRecords)
+  );
 
-  const [feePayments, setFeePayments] = useState<FeePayment[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_fees`);
-    return saved ? JSON.parse(saved) : initialFeePayments;
-  });
+  const [feePayments, setFeePayments] = useState<FeePayment[]>(() =>
+    safeParseArray(`${STORAGE_KEY}_fees`, initialFeePayments)
+  );
 
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_expenses`);
-    return saved ? JSON.parse(saved) : initialExpenses;
-  });
+  const [expenses, setExpenses] = useState<Expense[]>(() =>
+    safeParseArray(`${STORAGE_KEY}_expenses`, initialExpenses)
+  );
 
-  const [monthlyArchives, setMonthlyArchives] = useState<MonthlyArchive[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_monthly_archives`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch {}
-    }
-    return [];
-  });
+  const [monthlyArchives, setMonthlyArchives] = useState<MonthlyArchive[]>(() =>
+    safeParseArray(`${STORAGE_KEY}_monthly_archives`, [])
+  );
 
-  const [exams, setExams] = useState<Exam[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_exams`);
-    return saved ? JSON.parse(saved) : initialExams;
-  });
+  const [exams, setExams] = useState<Exam[]>(() =>
+    safeParseArray(`${STORAGE_KEY}_exams`, initialExams)
+  );
 
-  const [routines, setRoutines] = useState<ClassRoutine[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_routines`);
-    if (saved) {
-      try {
-        const parsed: ClassRoutine[] = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter((r) => r.id !== 'rtn-sample-10');
-        }
-      } catch {}
-    }
-    return initialRoutines;
-  });
+  const [routines, setRoutines] = useState<ClassRoutine[]>(() =>
+    safeParseArray<ClassRoutine>(`${STORAGE_KEY}_routines`, initialRoutines).filter(
+      (r) => r && r.id !== 'rtn-sample-10'
+    )
+  );
 
   // Ensure active session is never persisted across exits/reloads
   useEffect(() => {
@@ -420,7 +440,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Persist audit logs
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_audit_logs`, JSON.stringify(auditLogs.slice(0, 200)));
+    safeSetLocalStorage(`${STORAGE_KEY}_audit_logs`, JSON.stringify(auditLogs.slice(0, 200)));
   }, [auditLogs]);
 
   const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
@@ -930,43 +950,43 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Persist locally whenever state changes
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_settings`, JSON.stringify(settings));
+    safeSetLocalStorage(`${STORAGE_KEY}_settings`, JSON.stringify(settings));
   }, [settings]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_students`, JSON.stringify(students));
+    safeSetLocalStorage(`${STORAGE_KEY}_students`, JSON.stringify(students));
   }, [students]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_batches`, JSON.stringify(batches));
+    safeSetLocalStorage(`${STORAGE_KEY}_batches`, JSON.stringify(batches));
   }, [batches]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_teachers`, JSON.stringify(teachers));
+    safeSetLocalStorage(`${STORAGE_KEY}_teachers`, JSON.stringify(teachers));
   }, [teachers]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_attendance`, JSON.stringify(attendance));
+    safeSetLocalStorage(`${STORAGE_KEY}_attendance`, JSON.stringify(attendance));
   }, [attendance]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_fees`, JSON.stringify(feePayments));
+    safeSetLocalStorage(`${STORAGE_KEY}_fees`, JSON.stringify(feePayments));
   }, [feePayments]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_expenses`, JSON.stringify(expenses));
+    safeSetLocalStorage(`${STORAGE_KEY}_expenses`, JSON.stringify(expenses));
   }, [expenses]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_monthly_archives`, JSON.stringify(monthlyArchives));
+    safeSetLocalStorage(`${STORAGE_KEY}_monthly_archives`, JSON.stringify(monthlyArchives));
   }, [monthlyArchives]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_exams`, JSON.stringify(exams));
+    safeSetLocalStorage(`${STORAGE_KEY}_exams`, JSON.stringify(exams));
   }, [exams]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_routines`, JSON.stringify(routines));
+    safeSetLocalStorage(`${STORAGE_KEY}_routines`, JSON.stringify(routines));
   }, [routines]);
 
   // Student Actions

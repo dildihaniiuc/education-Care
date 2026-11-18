@@ -29,6 +29,103 @@
         e.preventDefault();
         window.__deferredInstallPrompt = e;
       });
+
+      (function () {
+        var recoveredKey = '_ec_boot_recover_ts';
+        function clearStaticCacheAndReload(force) {
+          try {
+            var last = Number(sessionStorage.getItem(recoveredKey) || '0');
+            if (!force && Date.now() - last < 15000) return false;
+            sessionStorage.setItem(recoveredKey, String(Date.now()));
+          } catch (e) {}
+
+          var tasks = [];
+          if ('serviceWorker' in navigator) {
+            tasks.push(
+              navigator.serviceWorker.getRegistrations().then(function (regs) {
+                return Promise.all(regs.map(function (r) { return r.unregister().catch(function () {}); }));
+              }).catch(function () {})
+            );
+          }
+          if ('caches' in window) {
+            tasks.push(
+              caches.keys().then(function (keys) {
+                return Promise.all(
+                  keys.filter(function (k) {
+                    return k.indexOf('firestore') === -1 && k.indexOf('firebase') === -1;
+                  }).map(function (k) { return caches.delete(k); })
+                );
+              }).catch(function () {})
+            );
+          }
+          Promise.all(tasks).finally(function () {
+            try {
+              var u = new URL(window.location.href);
+              u.searchParams.set('_pwa_u', String(Date.now()));
+              window.location.replace(u.toString());
+            } catch (e) {
+              window.location.reload();
+            }
+          });
+          return true;
+        }
+
+        function isAssetLoadFailure(event) {
+          var target = event && event.target;
+          if (!target) return false;
+          var tag = target.tagName;
+          if (tag === 'SCRIPT' && target.src && target.src.indexOf('/assets/') !== -1) return true;
+          if (tag === 'LINK' && target.href && target.href.indexOf('/assets/') !== -1 && (target.rel === 'modulepreload' || target.rel === 'stylesheet')) return true;
+          return false;
+        }
+
+        window.addEventListener('vite:preloadError', function (event) {
+          event.preventDefault();
+          clearStaticCacheAndReload(false);
+        });
+
+        window.addEventListener('error', function (event) {
+          if (isAssetLoadFailure(event)) {
+            clearStaticCacheAndReload(false);
+            return;
+          }
+          var root = document.getElementById('root');
+          if (root && root.childElementCount === 0 && event && event.message) {
+            var msg = String(event.message);
+            if (/loading chunk|module script|dynamically imported module|unexpected token/i.test(msg)) {
+              clearStaticCacheAndReload(false);
+            }
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function (event) {
+          var root = document.getElementById('root');
+          if (!root || root.childElementCount > 0) return;
+          var reason = event && event.reason ? String(event.reason.message || event.reason) : '';
+          if (/loading chunk|module script|dynamically imported module|failed to fetch/i.test(reason)) {
+            clearStaticCacheAndReload(false);
+          }
+        });
+
+        window.setTimeout(function () {
+          var root = document.getElementById('root');
+          if (root && root.childElementCount === 0) {
+            if (!clearStaticCacheAndReload(false)) {
+              root.innerHTML =
+                '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;background:#f8fafc;font-family:sans-serif;text-align:center;">' +
+                '<div style="max-width:380px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;box-shadow:0 10px 25px rgba(0,0,0,0.06);">' +
+                '<h2 style="margin:0 0 8px;font-size:18px;color:#0f172a;">পেজ লোড হতে সমস্যা হয়েছে</h2>' +
+                '<p style="margin:0 0 16px;font-size:13px;color:#475569;line-height:1.5;">পুরোনো ক্যাশের কারণে পেজ সাদা হয়ে আছে। নিচের বাটনে চাপ দিয়ে ক্যাশ পরিষ্কার করুন (আপনার কোনো ডাটা মুছবে না)।</p>' +
+                '<button id="ec-boot-recover-btn" type="button" style="width:100%;padding:10px 16px;border:none;border-radius:12px;background:#065F46;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">ক্যাশ পরিষ্কার করে ঠিক করুন</button>' +
+                '</div></div>';
+              var btn = document.getElementById('ec-boot-recover-btn');
+              if (btn) {
+                btn.onclick = function () { clearStaticCacheAndReload(true); };
+              }
+            }
+          }
+        }, 9500);
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
