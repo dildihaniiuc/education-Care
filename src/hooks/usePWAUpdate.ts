@@ -78,7 +78,17 @@ export function usePWAUpdate(): PWAUpdateState {
 
   // Register Service Worker directly in production and track waiting/installing workers
   useEffect(() => {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !import.meta.env.PROD) {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      return;
+    }
+
+    if (!import.meta.env.PROD) {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((regs) => {
+          regs.forEach((r) => void r.unregister());
+        })
+        .catch(() => {});
       return;
     }
 
