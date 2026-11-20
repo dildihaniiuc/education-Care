@@ -12,6 +12,7 @@ import {
   ClassRoutine,
   AuditLog,
   MonthlyArchive,
+  QuestionPaper,
 } from '../types';
 import {
   initialInstituteSettings,
@@ -35,6 +36,7 @@ import {
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import JSZip from 'jszip';
 import { generateId, toBn, getGradeAndGPA, cleanPhoneNumber, cleanPasskey, bengaliMonths } from '../utils/bengaliUtils';
+import { MAX_TOTAL_PAYLOAD_BYTES, recompressDataUrlsToBudget } from '../utils/imageCompression';
 
 interface CoachingContextType {
   // Theme state
@@ -118,6 +120,17 @@ interface CoachingContextType {
   addRoutine: (routine: Omit<ClassRoutine, 'id' | 'createdAt' | 'updatedAt'>) => ClassRoutine;
   updateRoutine: (id: string, routine: Partial<ClassRoutine>) => void;
   deleteRoutine: (id: string) => void;
+
+  // Question Bank
+  questionBank: QuestionPaper[];
+  addQuestionPaper: (
+    paper: Omit<QuestionPaper, 'id' | 'createdAt' | 'updatedAt' | 'uploadedByTeacherId' | 'uploadedByTeacherName'>
+  ) => Promise<QuestionPaper>;
+  updateQuestionPaper: (
+    id: string,
+    updates: Partial<Omit<QuestionPaper, 'id' | 'createdAt' | 'uploadedByTeacherId' | 'uploadedByTeacherName'>>
+  ) => Promise<void>;
+  deleteQuestionPaper: (id: string) => Promise<void>;
 
   // Settings & System & Multi-Format Exports
   updateSettings: (newSettings: InstituteSettings) => void;
@@ -427,6 +440,10 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     safeParseArray<ClassRoutine>(`${STORAGE_KEY}_routines`, initialRoutines).filter(
       (r) => r && r.id !== 'rtn-sample-10'
     )
+  );
+
+  const [questionBank, setQuestionBank] = useState<QuestionPaper[]>(() =>
+    safeParseArray<QuestionPaper>(`${STORAGE_KEY}_question_bank`, [])
   );
 
   // Ensure active session is never persisted across exits/reloads
@@ -922,7 +939,25 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         )
       );
 
-      // 11. Audit Logs
+      // 11. Question Bank
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'questionBank'),
+          (snapshot) => {
+            if (!snapshot.empty || !snapshot.metadata.fromCache) {
+              const list = snapshot.docs.map((d) => ({ ...(d.data() as QuestionPaper), id: d.id }));
+              list.sort(
+                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              );
+              setQuestionBank(list);
+              setIsCloudSynced(true);
+            }
+          },
+          (error) => handleFirestoreError(error, OperationType.GET, 'questionBank')
+        )
+      );
+
+      // 12. Audit Logs
       unsubs.push(
         onSnapshot(
           collection(db, 'auditLogs'),
@@ -988,6 +1023,10 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     safeSetLocalStorage(`${STORAGE_KEY}_routines`, JSON.stringify(routines));
   }, [routines]);
+
+  useEffect(() => {
+    safeSetLocalStorage(`${STORAGE_KEY}_question_bank`, JSON.stringify(questionBank));
+  }, [questionBank]);
 
   // Student Actions
   const addStudent = (newStudent: Omit<Student, 'id'>) => {
@@ -1551,6 +1590,131 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
+  // Question Bank Actions (Cloud Firestore + Real-time Sync)
+  const addQuestionPaper = async (
+    input: Omit<QuestionPaper, 'id' | 'createdAt' | 'updatedAt' | 'uploadedByTeacherId' | 'uploadedByTeacherName'>
+  ): Promise<QuestionPaper> => {
+    const teacherName = currentTeacher?.name ? `${currentTeacher.name}` : 'দিল দিহান';
+    const teacherId = currentTeacher?.id || 'tch-dildihan';
+    const timestamp = new Date().toISOString();
+
+    const safeImages = await recompressDataUrlsToBudget(input.imageUrls, MAX_TOTAL_PAYLOAD_BYTES);
+    if (!safeImages.length) {
+      throw new Error('অন্তত ১টি প্রশ্নের ছবি আপলোড করুন।');
+    }
+
+    const totalSize = safeImages.reduce((acc, s) => acc + s.length, 0);
+    if (totalSize > 900_000) {
+      throw new Error('ছবিগুলোর মোট সাইজ বেশি হয়ে গেছে। অনুগ্রহ করে পেজ সংখ্যা কমিয়ে বা ছোট ছবি দিন।');
+    }
+
+    const newPaper: QuestionPaper = {
+      id: generateId('qbk'),
+      title: input.title.trim().slice(0, 160),
+      classGrade: input.classGrade,
+      year: Math.round(Number(input.year)),
+      subject: input.subject.trim().slice(0, 80),
+      imageUrls: safeImages,
+      uploadedByTeacherId: teacherId,
+      uploadedByTeacherName: teacherName.slice(0, 120),
+      createdAt: timestamp,
+      ...(input.examType?.trim() ? { examType: input.examType.trim().slice(0, 80) } : {}),
+      ...(input.note?.trim() ? { note: input.note.trim().slice(0, 500) } : {}),
+    };
+
+    try {
+      await setDoc(doc(db, 'questionBank', newPaper.id), newPaper);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, `questionBank/${newPaper.id}`);
+      throw e;
+    }
+
+    setQuestionBank((prev) => [newPaper, ...prev]);
+    addAuditLog(
+      'প্রশ্ন ব্যাংকে সংরক্ষণ',
+      `${newPaper.classGrade} শ্রেণি · ${newPaper.subject} (${toBn(newPaper.year)}) - ${newPaper.title}`,
+      'questionBank'
+    );
+
+    return newPaper;
+  };
+
+  const updateQuestionPaper = async (
+    id: string,
+    updates: Partial<Omit<QuestionPaper, 'id' | 'createdAt' | 'uploadedByTeacherId' | 'uploadedByTeacherName'>>
+  ): Promise<void> => {
+    const existing = questionBank.find((q) => q.id === id);
+    if (!existing) {
+      throw new Error('প্রশ্নটি খুঁজে পাওয়া যায়নি।');
+    }
+
+    const nextImages = updates.imageUrls
+      ? await recompressDataUrlsToBudget(updates.imageUrls, MAX_TOTAL_PAYLOAD_BYTES)
+      : existing.imageUrls;
+
+    if (!nextImages.length) {
+      throw new Error('অন্তত ১টি প্রশ্নের ছবি থাকতে হবে।');
+    }
+
+    const totalSize = nextImages.reduce((acc, s) => acc + s.length, 0);
+    if (totalSize > 900_000) {
+      throw new Error('ছবিগুলোর মোট সাইজ বেশি হয়ে গেছে। অনুগ্রহ করে পেজ সংখ্যা কমিয়ে দিন।');
+    }
+
+    const updatedTitle = (updates.title ?? existing.title).trim().slice(0, 160);
+    const updatedSubject = (updates.subject ?? existing.subject).trim().slice(0, 80);
+    const updatedExamType =
+      updates.examType !== undefined ? updates.examType.trim().slice(0, 80) : existing.examType;
+    const updatedNote =
+      updates.note !== undefined ? updates.note.trim().slice(0, 500) : existing.note;
+
+    const cleanPaper: QuestionPaper = {
+      id: existing.id,
+      title: updatedTitle,
+      classGrade: updates.classGrade ?? existing.classGrade,
+      year: Math.round(Number(updates.year ?? existing.year)),
+      subject: updatedSubject,
+      imageUrls: nextImages,
+      uploadedByTeacherId: existing.uploadedByTeacherId,
+      uploadedByTeacherName: existing.uploadedByTeacherName,
+      createdAt: existing.createdAt,
+      updatedAt: new Date().toISOString(),
+      ...(updatedExamType ? { examType: updatedExamType } : {}),
+      ...(updatedNote ? { note: updatedNote } : {}),
+    };
+
+    try {
+      await setDoc(doc(db, 'questionBank', id), cleanPaper);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `questionBank/${id}`);
+      throw e;
+    }
+
+    setQuestionBank((prev) => prev.map((q) => (q.id === id ? cleanPaper : q)));
+    addAuditLog(
+      'প্রশ্ন তথ্য হালনাগাদ',
+      `${cleanPaper.classGrade} শ্রেণি · ${cleanPaper.subject} (${toBn(cleanPaper.year)}) - ${cleanPaper.title}`,
+      'questionBank'
+    );
+  };
+
+  const deleteQuestionPaper = async (id: string): Promise<void> => {
+    const existing = questionBank.find((q) => q.id === id);
+    try {
+      await deleteDoc(doc(db, 'questionBank', id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `questionBank/${id}`);
+      throw e;
+    }
+
+    setQuestionBank((prev) => prev.filter((q) => q.id !== id));
+    addAuditLog(
+      'প্রশ্ন ব্যাংক থেকে মুছে ফেলা',
+      `${existing?.classGrade || ''} · ${existing?.subject || ''} (${existing ? toBn(existing.year) : ''}) - ${existing?.title || 'প্রশ্ন'}`,
+      'questionBank'
+    );
+  };
+
   // Settings & System Backup
   const updateSettings = (newSettings: InstituteSettings) => {
     setSettings(newSettings);
@@ -1737,6 +1901,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       monthlyArchives,
       exams,
       routines,
+      questionBank,
       exportDate: new Date().toISOString(),
       institute: settings.name,
       district: settings.district,
@@ -1805,6 +1970,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       monthlyArchives,
       exams,
       routines,
+      questionBank,
       exportDate: new Date().toISOString(),
       institute: settings.name,
       district: settings.district,
@@ -1833,6 +1999,7 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (Array.isArray(data.monthlyArchives)) setMonthlyArchives(data.monthlyArchives);
         if (Array.isArray(data.exams)) setExams(data.exams);
         if (Array.isArray(data.routines)) setRoutines(data.routines);
+        if (Array.isArray(data.questionBank)) setQuestionBank(data.questionBank);
         return true;
       }
       return false;
@@ -1964,6 +2131,10 @@ export const CoachingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         addRoutine,
         updateRoutine,
         deleteRoutine,
+        questionBank,
+        addQuestionPaper,
+        updateQuestionPaper,
+        deleteQuestionPaper,
         updateSettings,
         exportDatabase,
         exportCsvReport,

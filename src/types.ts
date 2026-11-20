@@ -82,7 +82,7 @@ export interface AuditLog {
   action: string;
   target: string;
   timestamp: string;
-  category: 'exam' | 'student' | 'fee' | 'attendance' | 'security' | 'batch';
+  category: 'exam' | 'student' | 'fee' | 'attendance' | 'security' | 'batch' | 'questionBank';
 }
 
 export type AttendanceStatus = 'উপস্থিত' | 'অনুপস্থিত' | 'বিলম্ব' | 'ছুটি';
@@ -237,6 +237,21 @@ export interface ClassRoutine {
   updatedAt: string;
 }
 
+export interface QuestionPaper {
+  id: string;
+  title: string;
+  examType?: string;
+  classGrade: ClassGrade;
+  year: number;
+  subject: string;
+  note?: string;
+  imageUrls: string[];
+  uploadedByTeacherId: string;
+  uploadedByTeacherName: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export type TabType =
   | 'dashboard'
   | 'students'
@@ -245,5 +260,6 @@ export type TabType =
   | 'attendance'
   | 'accounts'
   | 'exams'
+  | 'questionBank'
   | 'teachers'
   | 'settings';

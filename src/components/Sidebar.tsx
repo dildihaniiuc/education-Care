@@ -7,6 +7,7 @@ import {
   Calendar,
   CreditCard,
   Award,
+  BookMarked,
   UserCheck,
   Settings,
   X,
@@ -32,7 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   setIsMobileOpen,
 }) => {
-  const { settings, students, batches, routines, darkMode, toggleDarkMode } = useCoaching();
+  const { settings, students, batches, routines, questionBank, darkMode, toggleDarkMode } = useCoaching();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -82,6 +83,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'exams',
       label: 'পরীক্ষা ও ফলাফল',
       icon: <Award className="w-5 h-5" />,
+    },
+    {
+      id: 'questionBank',
+      label: 'প্রশ্ন ব্যাংক',
+      icon: <BookMarked className="w-5 h-5" />,
+      count: questionBank && questionBank.length > 0 ? toBn(questionBank.length) : undefined,
     },
     {
       id: 'teachers',

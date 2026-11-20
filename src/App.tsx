@@ -9,6 +9,7 @@ import { RoutineManagement } from './components/routine/RoutineManagement';
 import { AttendanceManagement } from './components/attendance/AttendanceManagement';
 import { AccountsManagement } from './components/accounts/AccountsManagement';
 import { ExamManagement } from './components/exams/ExamManagement';
+import { QuestionBankManagement } from './components/questions/QuestionBankManagement';
 import { TeacherManagement } from './components/teachers/TeacherManagement';
 import { SettingsManagement } from './components/settings/SettingsManagement';
 
@@ -172,6 +173,8 @@ export function CoachingApp() {
             )}
 
             {currentTab === 'exams' && <ExamManagement />}
+
+            {currentTab === 'questionBank' && <QuestionBankManagement />}
 
             {currentTab === 'teachers' && <TeacherManagement />}
 

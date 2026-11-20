@@ -76,6 +76,63 @@ service cloud.firestore {
       allow write: if isValidId(archiveId);
     }
 
+    function isValidStrictId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidQuestionPaper(data, questionId) {
+      return data.keys().hasAll([
+        'id',
+        'title',
+        'classGrade',
+        'year',
+        'subject',
+        'imageUrls',
+        'uploadedByTeacherId',
+        'uploadedByTeacherName',
+        'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'id',
+        'title',
+        'examType',
+        'classGrade',
+        'year',
+        'subject',
+        'note',
+        'imageUrls',
+        'uploadedByTeacherId',
+        'uploadedByTeacherName',
+        'createdAt',
+        'updatedAt'
+      ])
+      && data.id is string && data.id == questionId
+      && data.title is string && data.title.size() > 0 && data.title.size() <= 160
+      && (!('examType' in data) || (data.examType is string && data.examType.size() <= 80))
+      && data.classGrade is string && data.classGrade.size() > 0 && data.classGrade.size() <= 40
+      && data.year is int && data.year >= 2000 && data.year <= 2100
+      && data.subject is string && data.subject.size() > 0 && data.subject.size() <= 80
+      && (!('note' in data) || (data.note is string && data.note.size() <= 500))
+      && data.imageUrls is list && data.imageUrls.size() >= 1 && data.imageUrls.size() <= 4
+      && data.imageUrls[0] is string && data.imageUrls[0].size() > 0 && data.imageUrls[0].size() <= 500000
+      && data.uploadedByTeacherId is string && data.uploadedByTeacherId.size() > 0 && data.uploadedByTeacherId.size() <= 128
+      && data.uploadedByTeacherName is string && data.uploadedByTeacherName.size() > 0 && data.uploadedByTeacherName.size() <= 120
+      && data.createdAt is string && data.createdAt.size() > 0 && data.createdAt.size() <= 64
+      && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    // Question Bank collection: Strict schema and size validation
+    match /questionBank/{questionId} {
+      allow read: if true;
+      allow create: if isValidStrictId(questionId)
+        && isValidQuestionPaper(request.resource.data, questionId);
+      allow update: if isValidStrictId(questionId)
+        && isValidQuestionPaper(request.resource.data, questionId)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isValidStrictId(questionId);
+    }
+
     // Settings collection
     match /settings/{settingId} {
       allow read: if true;

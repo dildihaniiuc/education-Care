@@ -184,6 +184,26 @@
         "closedByTeacherName": { "type": "string" }
       },
       "required": ["id", "month", "year", "monthLabel", "totalIncome", "totalExpenses", "netBalance", "closedAt"]
+    },
+    "QuestionPaper": {
+      "title": "QuestionPaper",
+      "description": "Archived question paper images with class, year, and subject metadata for future exam reference",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 160 },
+        "examType": { "type": "string", "maxLength": 80 },
+        "classGrade": { "type": "string", "maxLength": 40 },
+        "year": { "type": "number" },
+        "subject": { "type": "string", "maxLength": 80 },
+        "note": { "type": "string", "maxLength": 500 },
+        "imageUrls": { "type": "array", "description": "Compressed question paper photo data URLs (1 to 4 pages)" },
+        "uploadedByTeacherId": { "type": "string", "maxLength": 128 },
+        "uploadedByTeacherName": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "title", "classGrade", "year", "subject", "imageUrls", "uploadedByTeacherId", "uploadedByTeacherName", "createdAt"]
     }
   },
   "firestore": {
@@ -226,6 +246,10 @@
     "/monthlyArchives/{archiveId}": {
       "schema": "MonthlyArchive",
       "description": "Archived monthly income and expense records"
+    },
+    "/questionBank/{questionId}": {
+      "schema": "QuestionPaper",
+      "description": "Archived exam question paper photos organized by class, year, and subject"
     },
     "/settings/coaching": {
       "schema": "InstituteSettings",

@@ -11,6 +11,7 @@ import {
   UserPlus,
   Search,
   Award,
+  BookMarked,
   Play,
   ShieldAlert,
 } from 'lucide-react';
@@ -44,6 +45,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     feePayments,
     attendance,
     exams,
+    questionBank,
     getStudentDueInfo,
   } = useCoaching();
 
@@ -174,6 +176,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
             >
               <CreditCard className="w-4 h-4" />
               <span>ফি আদায়</span>
+            </button>
+            <button
+              onClick={() => onNavigate('questionBank')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#065F46] hover:bg-[#064E3B] text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer"
+            >
+              <BookMarked className="w-4 h-4" />
+              <span>প্রশ্ন ব্যাংক ({toBn(questionBank.length)})</span>
             </button>
           </div>
         </div>
